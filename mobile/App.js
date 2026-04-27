@@ -2,13 +2,13 @@ import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -68,6 +68,7 @@ function formatDate(value) {
 }
 
 export default function App() {
+  const insets = useSafeAreaInsets();
   const [booting, setBooting] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
@@ -282,7 +283,8 @@ export default function App() {
   const elevatedCount = diagnostics.filter((item) => item.niveau_risque === 'Élevé').length;
 
   return (
-    <SafeAreaView style={styles.root}>
+    <View style={styles.root}>
+      <SafeAreaView style={styles.safeContent} edges={['top', 'left', 'right']}>
       <StatusBar style="dark" />
       <View style={styles.header}>
         <View>
@@ -426,7 +428,9 @@ export default function App() {
         </ScrollView>
       )}
 
-      <View style={styles.bottomBar}>
+      </SafeAreaView>
+
+      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 4 }]}>
         <Pressable style={styles.tabItem} onPress={() => setScreen('dashboard')}>
           <Ionicons name="home" size={24} color={screen === 'dashboard' ? '#21543d' : '#8a9a8b'} />
           <Text style={[styles.tabLabel, screen === 'dashboard' ? styles.tabLabelActive : null]}>Accueil</Text>
@@ -439,7 +443,7 @@ export default function App() {
           <Text style={[styles.tabLabel, screen === 'account' ? styles.tabLabelActive : null]}>Compte</Text>
         </Pressable>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -449,6 +453,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f0e8',
   },
   flex: {
+    flex: 1,
+  },
+  safeContent: {
     flex: 1,
   },
   loadingScreen: {
@@ -506,7 +513,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fffdf8',
     borderTopWidth: 1,
     borderTopColor: '#e0d8c7',
-    paddingBottom: 24,
     paddingTop: 10,
     paddingHorizontal: 40,
     alignItems: 'center',

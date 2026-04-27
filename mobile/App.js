@@ -285,142 +285,142 @@ export default function App() {
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.safeContent} edges={['top', 'left', 'right']}>
-      <StatusBar style="dark" />
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.eyebrow}>Bonjour {user.name}</Text>
-          <Text style={styles.headerTitle}>Pilotage des parcelles</Text>
+        <StatusBar style="dark" />
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.eyebrow}>Bonjour {user.name}</Text>
+            <Text style={styles.headerTitle}>Pilotage des parcelles</Text>
+          </View>
         </View>
-      </View>
 
-      {screen === 'dashboard' ? (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.statsRow}>
-            <StatCard label="Parcelles" value={parcelles.length} />
-            <StatCard label="Diagnostics" value={diagnostics.length} />
-            <StatCard label="Risque eleve" value={elevatedCount} accent="#9f2f1f" />
-          </View>
-
-          <View style={styles.card}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Mes parcelles</Text>
-              <Pressable onPress={refreshData} disabled={refreshing}>
-                <Text style={styles.inlineAction}>{refreshing ? 'Actualisation...' : 'Actualiser'}</Text>
-              </Pressable>
+        {screen === 'dashboard' ? (
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.statsRow}>
+              <StatCard label="Parcelles" value={parcelles.length} />
+              <StatCard label="Diagnostics" value={diagnostics.length} />
+              <StatCard label="Risque eleve" value={elevatedCount} accent="#9f2f1f" />
             </View>
-            {parcelles.map((parcelle) => (
-              <View key={parcelle.id} style={styles.parcelleRow}>
-                <View>
-                  <Text style={styles.parcelleTitle}>{parcelle.name}</Text>
-                  <Text style={styles.parcelleMeta}>
-                    {parcelle.culture} | {parcelle.surface_ha} ha
-                  </Text>
-                </View>
-                <Text style={styles.parcelleCoords}>
-                  {Number(parcelle.latitude).toFixed(2)}, {Number(parcelle.longitude).toFixed(2)}
-                </Text>
-              </View>
-            ))}
-          </View>
 
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Derniers diagnostics</Text>
-            {diagnostics.map((diagnostic) => (
-              <View key={diagnostic.id} style={styles.diagnosticCard}>
-                <View style={styles.diagnosticHeader}>
-                  <View style={styles.diagnosticHeaderText}>
-                    <Text style={styles.diagnosticTitle}>{diagnostic.maladie_detectee}</Text>
-                    <Text style={styles.diagnosticMeta}>
-                      {diagnostic.parcelle_name || 'Parcelle non rattachee'} | {formatDate(diagnostic.created_at)}
+            <View style={styles.card}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Mes parcelles</Text>
+                <Pressable onPress={refreshData} disabled={refreshing}>
+                  <Text style={styles.inlineAction}>{refreshing ? 'Actualisation...' : 'Actualiser'}</Text>
+                </Pressable>
+              </View>
+              {parcelles.map((parcelle) => (
+                <View key={parcelle.id} style={styles.parcelleRow}>
+                  <View>
+                    <Text style={styles.parcelleTitle}>{parcelle.name}</Text>
+                    <Text style={styles.parcelleMeta}>
+                      {parcelle.culture} | {parcelle.surface_ha} ha
                     </Text>
                   </View>
-                  <RiskBadge value={diagnostic.niveau_risque} />
+                  <Text style={styles.parcelleCoords}>
+                    {Number(parcelle.latitude).toFixed(2)}, {Number(parcelle.longitude).toFixed(2)}
+                  </Text>
                 </View>
-                <Text style={styles.diagnosticAdvice}>{diagnostic.conseil}</Text>
-              </View>
-            ))}
-          </View>
-        </ScrollView>
-      ) : screen === 'account' ? (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Mon compte</Text>
-            <View style={styles.accountRow}>
-              <Text style={styles.accountLabel}>Nom</Text>
-              <Text style={styles.accountValue}>{user.name}</Text>
+              ))}
             </View>
-            <View style={styles.accountRow}>
-              <Text style={styles.accountLabel}>Email</Text>
-              <Text style={styles.accountValue}>{user.email}</Text>
-            </View>
-            <View style={styles.accountRow}>
-              <Text style={styles.accountLabel}>API</Text>
-              <Text style={styles.accountValue} numberOfLines={1}>{API_BASE_URL}</Text>
-            </View>
-          </View>
-          <Pressable style={styles.dangerButton} onPress={clearSession}>
-            <Text style={styles.dangerButtonText}>Se deconnecter</Text>
-          </Pressable>
-        </ScrollView>
-      ) : screen === 'new' ? (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Associer la parcelle</Text>
-            <View style={styles.selectorList}>
-              {parcelles.map((parcelle) => {
-                const active = selectedParcelleId === parcelle.id;
-                return (
-                  <Pressable
-                    key={parcelle.id}
-                    style={[styles.selectorPill, active ? styles.selectorPillActive : null]}
-                    onPress={() => setSelectedParcelleId(parcelle.id)}
-                  >
-                    <Text style={[styles.selectorText, active ? styles.selectorTextActive : null]}>
-                      {parcelle.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
 
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Photo a analyser</Text>
-            <View style={styles.imageSourceRow}>
-              <Pressable style={[styles.primaryButton, styles.imageSourceButton]} onPress={takePhoto}>
-                <Text style={styles.primaryButtonText}>Prendre une photo</Text>
-              </Pressable>
-              <Pressable style={[styles.secondaryButton, styles.imageSourceButton]} onPress={pickImage}>
-                <Text style={styles.secondaryButtonText}>Galerie</Text>
-              </Pressable>
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Derniers diagnostics</Text>
+              {diagnostics.map((diagnostic) => (
+                <View key={diagnostic.id} style={styles.diagnosticCard}>
+                  <View style={styles.diagnosticHeader}>
+                    <View style={styles.diagnosticHeaderText}>
+                      <Text style={styles.diagnosticTitle}>{diagnostic.maladie_detectee}</Text>
+                      <Text style={styles.diagnosticMeta}>
+                        {diagnostic.parcelle_name || 'Parcelle non rattachee'} | {formatDate(diagnostic.created_at)}
+                      </Text>
+                    </View>
+                    <RiskBadge value={diagnostic.niveau_risque} />
+                  </View>
+                  <Text style={styles.diagnosticAdvice}>{diagnostic.conseil}</Text>
+                </View>
+              ))}
             </View>
-            {selectedImage ? (
-              <View style={styles.previewBlock}>
-                <Image source={{ uri: selectedImage.uri }} style={styles.previewImage} />
-                <Text style={styles.helperText}>Image prete pour l analyse IA</Text>
+          </ScrollView>
+        ) : screen === 'account' ? (
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Mon compte</Text>
+              <View style={styles.accountRow}>
+                <Text style={styles.accountLabel}>Nom</Text>
+                <Text style={styles.accountValue}>{user.name}</Text>
               </View>
-            ) : (
-              <Text style={styles.helperText}>Aucune image selectionnee</Text>
-            )}
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Envoyer au backend</Text>
-            <Text style={styles.helperText}>
-              Le backend tourne sur {API_BASE_URL}. Si tu testes depuis un autre reseau, pense a ajuster l IP.
-            </Text>
-            <Pressable style={styles.primaryButton} onPress={handleCreateDiagnostic} disabled={submitting}>
-              <Text style={styles.primaryButtonText}>
-                {submitting ? 'Analyse en cours...' : 'Lancer le diagnostic'}
-              </Text>
+              <View style={styles.accountRow}>
+                <Text style={styles.accountLabel}>Email</Text>
+                <Text style={styles.accountValue}>{user.email}</Text>
+              </View>
+              <View style={styles.accountRow}>
+                <Text style={styles.accountLabel}>API</Text>
+                <Text style={styles.accountValue} numberOfLines={1}>{API_BASE_URL}</Text>
+              </View>
+            </View>
+            <Pressable style={styles.dangerButton} onPress={clearSession}>
+              <Text style={styles.dangerButtonText}>Se deconnecter</Text>
             </Pressable>
-          </View>
-        </ScrollView>
-      ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <MapScreen parcelles={parcelles} refreshing={refreshing} onRefresh={refreshData} />
-        </ScrollView>
-      )}
+          </ScrollView>
+        ) : screen === 'new' ? (
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Associer la parcelle</Text>
+              <View style={styles.selectorList}>
+                {parcelles.map((parcelle) => {
+                  const active = selectedParcelleId === parcelle.id;
+                  return (
+                    <Pressable
+                      key={parcelle.id}
+                      style={[styles.selectorPill, active ? styles.selectorPillActive : null]}
+                      onPress={() => setSelectedParcelleId(parcelle.id)}
+                    >
+                      <Text style={[styles.selectorText, active ? styles.selectorTextActive : null]}>
+                        {parcelle.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Photo a analyser</Text>
+              <View style={styles.imageSourceRow}>
+                <Pressable style={[styles.primaryButton, styles.imageSourceButton]} onPress={takePhoto}>
+                  <Text style={styles.primaryButtonText}>Prendre une photo</Text>
+                </Pressable>
+                <Pressable style={[styles.secondaryButton, styles.imageSourceButton]} onPress={pickImage}>
+                  <Text style={styles.secondaryButtonText}>Galerie</Text>
+                </Pressable>
+              </View>
+              {selectedImage ? (
+                <View style={styles.previewBlock}>
+                  <Image source={{ uri: selectedImage.uri }} style={styles.previewImage} />
+                  <Text style={styles.helperText}>Image prete pour l analyse IA</Text>
+                </View>
+              ) : (
+                <Text style={styles.helperText}>Aucune image selectionnee</Text>
+              )}
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Envoyer au backend</Text>
+              <Text style={styles.helperText}>
+                Le backend tourne sur {API_BASE_URL}. Si tu testes depuis un autre reseau, pense a ajuster l IP.
+              </Text>
+              <Pressable style={styles.primaryButton} onPress={handleCreateDiagnostic} disabled={submitting}>
+                <Text style={styles.primaryButtonText}>
+                  {submitting ? 'Analyse en cours...' : 'Lancer le diagnostic'}
+                </Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        ) : (
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <MapScreen parcelles={parcelles} refreshing={refreshing} onRefresh={refreshData} />
+          </ScrollView>
+        )}
 
       </SafeAreaView>
 

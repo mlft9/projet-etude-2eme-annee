@@ -36,6 +36,13 @@ export function login(credentials) {
   });
 }
 
+export function register(payload) {
+  return request('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export function fetchParcelles(token) {
   return request('/parcelles', {
     headers: {

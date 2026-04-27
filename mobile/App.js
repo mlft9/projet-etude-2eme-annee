@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,6 +17,7 @@ import {
 
 import { API_BASE_URL } from './src/config';
 import AuthScreen from './src/screens/AuthScreen';
+import MapScreen from './src/screens/MapScreen';
 import { createDiagnostic, fetchDiagnostics, fetchParcelles, login, register } from './src/services/api';
 
 const SESSION_KEY = 'parcellia.session';
@@ -287,24 +289,6 @@ export default function App() {
           <Text style={styles.eyebrow}>Bonjour {user.name}</Text>
           <Text style={styles.headerTitle}>Pilotage des parcelles</Text>
         </View>
-        <Pressable style={styles.secondaryButton} onPress={clearSession}>
-          <Text style={styles.secondaryButtonText}>Deconnexion</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.tabRow}>
-        <Pressable
-          style={[styles.tabButton, screen === 'dashboard' ? styles.tabButtonActive : null]}
-          onPress={() => setScreen('dashboard')}
-        >
-          <Text style={[styles.tabText, screen === 'dashboard' ? styles.tabTextActive : null]}>Tableau de bord</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.tabButton, screen === 'new' ? styles.tabButtonActive : null]}
-          onPress={() => setScreen('new')}
-        >
-          <Text style={[styles.tabText, screen === 'new' ? styles.tabTextActive : null]}>Nouveau diagnostic</Text>
-        </Pressable>
       </View>
 
       {screen === 'dashboard' ? (
@@ -328,9 +312,15 @@ export default function App() {
                   <Text style={styles.parcelleTitle}>{parcelle.name}</Text>
                   <Text style={styles.parcelleMeta}>
                     {parcelle.culture} | {parcelle.surface_ha} ha
+            <Pressable
+              style={[styles.tabButton, screen === 'map' ? styles.tabButtonActive : null]}
+              onPress={() => setScreen('map')}
+            >
+              <Text style={[styles.tabText, screen === 'map' ? styles.tabTextActive : null]}>Carte</Text>
+            </Pressable>
                   </Text>
                 </View>
-                <Text style={styles.parcelleCoords}>
+          {screen === 'dashboard' ? (
                   {Number(parcelle.latitude).toFixed(2)}, {Number(parcelle.longitude).toFixed(2)}
                 </Text>
               </View>
@@ -355,7 +345,28 @@ export default function App() {
             ))}
           </View>
         </ScrollView>
-      ) : (
+      ) : screen === 'account' ? (
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Mon compte</Text>
+            <View style={styles.accountRow}>
+              <Text style={styles.accountLabel}>Nom</Text>
+              <Text style={styles.accountValue}>{user.name}</Text>
+            </View>
+            <View style={styles.accountRow}>
+              <Text style={styles.accountLabel}>Email</Text>
+              <Text style={styles.accountValue}>{user.email}</Text>
+            </View>
+            <View style={styles.accountRow}>
+              <Text style={styles.accountLabel}>API</Text>
+              <Text style={styles.accountValue} numberOfLines={1}>{API_BASE_URL}</Text>
+            </View>
+          </View>
+          <Pressable style={styles.dangerButton} onPress={clearSession}>
+            <Text style={styles.dangerButtonText}>Se deconnecter</Text>
+          </Pressable>
+        </ScrollView>
+      ) : screen === 'new' ? (
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Associer la parcelle</Text>
@@ -409,7 +420,25 @@ export default function App() {
             </Pressable>
           </View>
         </ScrollView>
+      ) : (
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <MapScreen parcelles={parcelles} refreshing={refreshing} onRefresh={refreshData} />
+        </ScrollView>
       )}
+
+      <View style={styles.bottomBar}>
+        <Pressable style={styles.tabItem} onPress={() => setScreen('dashboard')}>
+          <Ionicons name="home" size={24} color={screen === 'dashboard' ? '#21543d' : '#8a9a8b'} />
+          <Text style={[styles.tabLabel, screen === 'dashboard' ? styles.tabLabelActive : null]}>Accueil</Text>
+        </Pressable>
+        <Pressable style={styles.fabButton} onPress={() => setScreen('new')}>
+          <Ionicons name="add" size={32} color="#fffdf8" />
+        </Pressable>
+        <Pressable style={styles.tabItem} onPress={() => setScreen('account')}>
+          <Ionicons name="person" size={24} color={screen === 'account' ? '#21543d' : '#8a9a8b'} />
+          <Text style={[styles.tabLabel, screen === 'account' ? styles.tabLabelActive : null]}>Compte</Text>
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }
@@ -472,33 +501,77 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
   },
-  tabRow: {
-    paddingHorizontal: 20,
-    paddingBottom: 8,
+  bottomBar: {
     flexDirection: 'row',
-    gap: 10,
+    backgroundColor: '#fffdf8',
+    borderTopWidth: 1,
+    borderTopColor: '#e0d8c7',
+    paddingBottom: 24,
+    paddingTop: 10,
+    paddingHorizontal: 40,
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  tabButton: {
+  tabItem: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: '#e6dfd0',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8a9a8b',
+  },
+  tabLabelActive: {
+    color: '#21543d',
+  },
+  fabButton: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#21543d',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  accountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#eee7d8',
+    paddingTop: 12,
+  },
+  accountLabel: {
+    color: '#677267',
+    fontWeight: '600',
+  },
+  accountValue: {
+    color: '#1d2a1e',
+    fontWeight: '700',
+    maxWidth: '65%',
+    textAlign: 'right',
+  },
+  dangerButton: {
+    backgroundColor: '#9f2f1f',
+    borderRadius: 16,
+    paddingVertical: 15,
     alignItems: 'center',
   },
-  tabButtonActive: {
-    backgroundColor: '#21543d',
-  },
-  tabText: {
-    color: '#516052',
-    fontWeight: '700',
-  },
-  tabTextActive: {
-    color: '#fffdf8',
+  dangerButtonText: {
+    color: '#fffaf5',
+    fontWeight: '800',
+    fontSize: 15,
   },
   scrollContent: {
     padding: 20,
     gap: 16,
-    paddingBottom: 40,
+    paddingBottom: 110,
   },
   statsRow: {
     flexDirection: 'row',

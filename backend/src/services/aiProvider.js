@@ -61,7 +61,8 @@ async function analyzeImage(imageBase64) {
     const parsed = JSON.parse(raw.replace(/```json\n?|\n?```/g, '').trim());
 
     return { ...parsed, raw };
-  } catch {
+  } catch (err) {
+    console.error('[aiProvider] Azure error, fallback mock:', err.message);
     return buildMockResponse();
   }
 }

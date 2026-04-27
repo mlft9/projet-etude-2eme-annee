@@ -51,6 +51,16 @@ export function fetchParcelles(token) {
   });
 }
 
+export function createParcelle(token, payload) {
+  return request('/parcelles', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
 export function fetchDiagnostics(token) {
   return request('/diagnostics', {
     headers: {

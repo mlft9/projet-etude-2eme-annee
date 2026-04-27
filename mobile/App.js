@@ -324,8 +324,13 @@ export default function App() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Derniers diagnostics</Text>
-              {diagnostics.map((diagnostic) => (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Derniers diagnostics</Text>
+                <Pressable onPress={() => setScreen('diagnostics')}>
+                  <Text style={styles.inlineAction}>Voir tout</Text>
+                </Pressable>
+              </View>
+              {diagnostics.slice(0, 3).map((diagnostic) => (
                 <View key={diagnostic.id} style={styles.diagnosticCard}>
                   <View style={styles.diagnosticHeader}>
                     <View style={styles.diagnosticHeaderText}>
@@ -339,6 +344,72 @@ export default function App() {
                   <Text style={styles.diagnosticAdvice}>{diagnostic.conseil}</Text>
                 </View>
               ))}
+            </View>
+          </ScrollView>
+        ) : screen === 'diagnostics' ? (
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.statsRow}>
+              <StatCard label="Total" value={diagnostics.length} />
+              <StatCard label="Risque eleve" value={elevatedCount} accent="#9f2f1f" />
+              <StatCard
+                label="Sans souci"
+                value={diagnostics.filter((item) => item.niveau_risque === 'Aucun').length}
+                accent="#21543d"
+              />
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Filtrer par parcelle</Text>
+                <Pressable onPress={() => setSelectedParcelleId(null)}>
+                  <Text style={styles.inlineAction}>Tout</Text>
+                </Pressable>
+              </View>
+              <View style={styles.selectorList}>
+                {parcelles.map((parcelle) => {
+                  const active = selectedParcelleId === parcelle.id;
+                  return (
+                    <Pressable
+                      key={parcelle.id}
+                      style={[styles.selectorPill, active ? styles.selectorPillActive : null]}
+                      onPress={() => setSelectedParcelleId(active ? null : parcelle.id)}
+                    >
+                      <Text style={[styles.selectorText, active ? styles.selectorTextActive : null]}>
+                        {parcelle.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Historique</Text>
+                <Pressable onPress={refreshData} disabled={refreshing}>
+                  <Text style={styles.inlineAction}>{refreshing ? 'Actualisation...' : 'Actualiser'}</Text>
+                </Pressable>
+              </View>
+              {(selectedParcelleId
+                ? diagnostics.filter((d) => d.parcelle_id === selectedParcelleId)
+                : diagnostics
+              ).map((diagnostic) => (
+                <View key={diagnostic.id} style={styles.diagnosticCard}>
+                  <View style={styles.diagnosticHeader}>
+                    <View style={styles.diagnosticHeaderText}>
+                      <Text style={styles.diagnosticTitle}>{diagnostic.maladie_detectee}</Text>
+                      <Text style={styles.diagnosticMeta}>
+                        {diagnostic.parcelle_name || 'Parcelle non rattachee'} | {formatDate(diagnostic.created_at)}
+                      </Text>
+                    </View>
+                    <RiskBadge value={diagnostic.niveau_risque} />
+                  </View>
+                  <Text style={styles.diagnosticAdvice}>{diagnostic.conseil}</Text>
+                </View>
+              ))}
+              {diagnostics.length === 0 && (
+                <Text style={styles.helperText}>Aucun diagnostic enregistre.</Text>
+              )}
             </View>
           </ScrollView>
         ) : screen === 'account' ? (
@@ -418,7 +489,7 @@ export default function App() {
           </ScrollView>
         ) : (
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            <MapScreen parcelles={parcelles} refreshing={refreshing} onRefresh={refreshData} />
+            <MapScreen parcelles={parcelles} refreshing={refreshing} onRefresh={refreshData} token={token} />
           </ScrollView>
         )}
 
@@ -435,6 +506,10 @@ export default function App() {
         </Pressable>
         <Pressable style={styles.fabButton} onPress={() => setScreen('new')}>
           <Ionicons name="add" size={32} color="#fffdf8" />
+        </Pressable>
+        <Pressable style={styles.tabItem} onPress={() => setScreen('diagnostics')}>
+          <Ionicons name="leaf" size={24} color={screen === 'diagnostics' ? '#21543d' : '#8a9a8b'} />
+          <Text style={[styles.tabLabel, screen === 'diagnostics' ? styles.tabLabelActive : null]}>Diagnostics</Text>
         </Pressable>
         <Pressable style={styles.tabItem} onPress={() => setScreen('account')}>
           <Ionicons name="person" size={24} color={screen === 'account' ? '#21543d' : '#8a9a8b'} />
@@ -476,7 +551,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   eyebrow: {
-    color: '#d4e4c6',
+    color: '#446347',
     fontSize: 13,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -537,10 +612,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
+    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.18)',
     elevation: 8,
   },
   accountRow: {

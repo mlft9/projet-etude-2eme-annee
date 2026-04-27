@@ -37,7 +37,7 @@ async function analyzeImage(imageBase64) {
     ? new OpenAI({
         apiKey: process.env.AZURE_OPENAI_KEY,
         baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o'}`,
-        defaultQuery: { 'api-version': '2024-02-15-preview' },
+        defaultQuery: { 'api-version': '2025-01-01-preview' },
         defaultHeaders: { 'api-key': process.env.AZURE_OPENAI_KEY },
       })
     : new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

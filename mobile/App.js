@@ -17,6 +17,7 @@ import {
 
 import { API_BASE_URL } from './src/config';
 import AuthScreen from './src/screens/AuthScreen';
+import MapScreen from './src/screens/MapScreen';
 import { createDiagnostic, fetchDiagnostics, fetchParcelles, login, register } from './src/services/api';
 
 const SESSION_KEY = 'parcellia.session';
@@ -313,9 +314,15 @@ export default function App() {
                   <Text style={styles.parcelleTitle}>{parcelle.name}</Text>
                   <Text style={styles.parcelleMeta}>
                     {parcelle.culture} | {parcelle.surface_ha} ha
+            <Pressable
+              style={[styles.tabButton, screen === 'map' ? styles.tabButtonActive : null]}
+              onPress={() => setScreen('map')}
+            >
+              <Text style={[styles.tabText, screen === 'map' ? styles.tabTextActive : null]}>Carte</Text>
+            </Pressable>
                   </Text>
                 </View>
-                <Text style={styles.parcelleCoords}>
+          {screen === 'dashboard' ? (
                   {Number(parcelle.latitude).toFixed(2)}, {Number(parcelle.longitude).toFixed(2)}
                 </Text>
               </View>
@@ -361,7 +368,7 @@ export default function App() {
             <Text style={styles.dangerButtonText}>Se deconnecter</Text>
           </Pressable>
         </ScrollView>
-      ) : (
+      ) : screen === 'new' ? (
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Associer la parcelle</Text>
@@ -414,6 +421,10 @@ export default function App() {
               </Text>
             </Pressable>
           </View>
+        </ScrollView>
+      ) : (
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <MapScreen parcelles={parcelles} refreshing={refreshing} onRefresh={refreshData} />
         </ScrollView>
       )}
 

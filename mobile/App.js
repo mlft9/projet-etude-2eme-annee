@@ -19,6 +19,7 @@ import {
 
 import { API_BASE_URL } from './src/config';
 import { createDiagnostic, fetchDiagnostics, fetchParcelles, login } from './src/services/api';
+import LiveZonesMap from './src/components/LiveZonesMap';
 
 const SESSION_KEY = 'parcellia.session';
 
@@ -278,6 +279,12 @@ export default function App() {
         >
           <Text style={[styles.tabText, screen === 'new' ? styles.tabTextActive : null]}>Nouveau diagnostic</Text>
         </Pressable>
+        <Pressable
+          style={[styles.tabButton, screen === 'map' ? styles.tabButtonActive : null]}
+          onPress={() => setScreen('map')}
+        >
+          <Text style={[styles.tabText, screen === 'map' ? styles.tabTextActive : null]}>Carte live</Text>
+        </Pressable>
       </View>
 
       {screen === 'dashboard' ? (
@@ -328,7 +335,7 @@ export default function App() {
             ))}
           </View>
         </ScrollView>
-      ) : (
+      ) : screen === 'new' ? (
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Associer la parcelle</Text>
@@ -376,6 +383,10 @@ export default function App() {
               </Text>
             </Pressable>
           </View>
+        </ScrollView>
+      ) : (
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <LiveZonesMap />
         </ScrollView>
       )}
     </SafeAreaView>

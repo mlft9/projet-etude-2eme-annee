@@ -61,3 +61,14 @@ export function createDiagnostic(token, payload) {
     body: JSON.stringify(payload),
   });
 }
+
+export function fetchZonesSnapshot() {
+  return request('/zones');
+}
+
+export function createDrawnZone(payload) {
+  return request('/zones/drawings', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}

@@ -36,5 +36,21 @@ services:
       - ./backend:/app
       - /app/node_modules
 
+  mobile:
+    build: ./mobile
+    container_name: parcell-ia-mobile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      EXPO_PUBLIC_API_URL: http://backend:3000
+    ports:
+      - "8081:8081"
+      - "19000:19000"
+      - "19001:19001"
+    volumes:
+      - ./mobile:/app
+      - /app/node_modules
+
 volumes:
   postgres_data:

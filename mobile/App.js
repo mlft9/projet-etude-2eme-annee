@@ -6,18 +6,16 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
 import { API_BASE_URL } from './src/config';
+import AuthScreen from './src/screens/AuthScreen';
 import { createDiagnostic, fetchDiagnostics, fetchParcelles, login, register } from './src/services/api';
 
 const SESSION_KEY = 'parcellia.session';
@@ -244,114 +242,19 @@ export default function App() {
 
   if (!token || !user) {
     return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar style="dark" />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-          <View style={styles.authShell}>
-            <View style={styles.heroPanel}>
-              <Text style={styles.eyebrow}>Parcell-IA</Text>
-              <Text style={styles.heroTitle}>Diagnostic agricole mobile</Text>
-              <Text style={styles.heroText}>
-                Connexion de demo pre-remplie pour piloter les parcelles, consulter les analyses
-                et envoyer une nouvelle image.
-              </Text>
-            </View>
-
-            <View style={styles.card}>
-              <View style={styles.authTabs}>
-                <Pressable
-                  style={[styles.authTab, authMode === 'login' ? styles.authTabActive : null]}
-                  onPress={() => setAuthMode('login')}
-                >
-                  <Text style={[styles.authTabText, authMode === 'login' ? styles.authTabTextActive : null]}>
-                    Connexion
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.authTab, authMode === 'register' ? styles.authTabActive : null]}
-                  onPress={() => setAuthMode('register')}
-                >
-                  <Text style={[styles.authTabText, authMode === 'register' ? styles.authTabTextActive : null]}>
-                    Inscription
-                  </Text>
-                </Pressable>
-              </View>
-
-              {authMode === 'login' ? (
-                <>
-                  <Text style={styles.sectionTitle}>Connexion</Text>
-                  <TextInput
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    placeholder="Email"
-                    placeholderTextColor="#7b887d"
-                    style={styles.input}
-                    value={credentials.email}
-                    onChangeText={(email) => setCredentials((current) => ({ ...current, email }))}
-                  />
-                  <TextInput
-                    placeholder="Mot de passe"
-                    placeholderTextColor="#7b887d"
-                    secureTextEntry
-                    style={styles.input}
-                    value={credentials.password}
-                    onChangeText={(password) => setCredentials((current) => ({ ...current, password }))}
-                  />
-                  <Pressable style={styles.primaryButton} onPress={handleLogin} disabled={authLoading}>
-                    <Text style={styles.primaryButtonText}>
-                      {authLoading ? 'Connexion...' : 'Entrer dans l application'}
-                    </Text>
-                  </Pressable>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.sectionTitle}>Inscription</Text>
-                  <TextInput
-                    placeholder="Nom complet"
-                    placeholderTextColor="#7b887d"
-                    style={styles.input}
-                    value={registerData.name}
-                    onChangeText={(name) => setRegisterData((current) => ({ ...current, name }))}
-                  />
-                  <TextInput
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    placeholder="Email"
-                    placeholderTextColor="#7b887d"
-                    style={styles.input}
-                    value={registerData.email}
-                    onChangeText={(email) => setRegisterData((current) => ({ ...current, email }))}
-                  />
-                  <TextInput
-                    placeholder="Mot de passe"
-                    placeholderTextColor="#7b887d"
-                    secureTextEntry
-                    style={styles.input}
-                    value={registerData.password}
-                    onChangeText={(password) => setRegisterData((current) => ({ ...current, password }))}
-                  />
-                  <TextInput
-                    placeholder="Confirmer le mot de passe"
-                    placeholderTextColor="#7b887d"
-                    secureTextEntry
-                    style={styles.input}
-                    value={registerData.confirmPassword}
-                    onChangeText={(confirmPassword) =>
-                      setRegisterData((current) => ({ ...current, confirmPassword }))
-                    }
-                  />
-                  <Pressable style={styles.primaryButton} onPress={handleRegister} disabled={registerLoading}>
-                    <Text style={styles.primaryButtonText}>
-                      {registerLoading ? 'Inscription...' : 'Creer mon compte'}
-                    </Text>
-                  </Pressable>
-                </>
-              )}
-              <Text style={styles.helperText}>API cible: {API_BASE_URL}</Text>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+      <AuthScreen
+        authMode={authMode}
+        setAuthMode={setAuthMode}
+        credentials={credentials}
+        setCredentials={setCredentials}
+        registerData={registerData}
+        setRegisterData={setRegisterData}
+        authLoading={authLoading}
+        registerLoading={registerLoading}
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+        apiBaseUrl={API_BASE_URL}
+      />
     );
   }
 
@@ -617,15 +520,6 @@ const styles = StyleSheet.create({
   inlineAction: {
     color: '#21543d',
     fontWeight: '700',
-  },
-  input: {
-    backgroundColor: '#f6f2e8',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: '#1d2a1e',
-    borderWidth: 1,
-    borderColor: '#ddd4c2',
   },
   authTabs: {
     flexDirection: 'row',

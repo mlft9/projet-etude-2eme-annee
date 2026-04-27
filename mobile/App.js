@@ -153,6 +153,25 @@ export default function App() {
     }
   }
 
+  async function takePhoto() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Accès refusé', 'Autorise la caméra pour photographier la plante.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      setSelectedImage(result.assets[0]);
+    }
+  }
+
   async function pickImage() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -352,9 +371,14 @@ export default function App() {
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Photo a analyser</Text>
-            <Pressable style={styles.primaryButton} onPress={pickImage}>
-              <Text style={styles.primaryButtonText}>Choisir une image</Text>
-            </Pressable>
+            <View style={styles.imageSourceRow}>
+              <Pressable style={[styles.primaryButton, styles.imageSourceButton]} onPress={takePhoto}>
+                <Text style={styles.primaryButtonText}>Prendre une photo</Text>
+              </Pressable>
+              <Pressable style={[styles.secondaryButton, styles.imageSourceButton]} onPress={pickImage}>
+                <Text style={styles.secondaryButtonText}>Galerie</Text>
+              </Pressable>
+            </View>
             {selectedImage ? (
               <View style={styles.previewBlock}>
                 <Image source={{ uri: selectedImage.uri }} style={styles.previewImage} />
@@ -642,6 +666,16 @@ const styles = StyleSheet.create({
   },
   selectorTextActive: {
     color: '#fffdf8',
+  },
+  imageSourceRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  imageSourceButton: {
+    flex: 1,
+    paddingVertical: 15,
+    alignItems: 'center',
+    borderRadius: 16,
   },
   previewBlock: {
     gap: 10,

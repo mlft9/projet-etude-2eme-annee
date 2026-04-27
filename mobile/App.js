@@ -198,7 +198,7 @@ export default function App() {
   if (booting) {
     return (
       <SafeAreaView style={styles.loadingScreen}>
-        <ActivityIndicator size="large" color="#21543d" />
+        <ActivityIndicator size="large" color="#003920" />
       </SafeAreaView>
     );
   }

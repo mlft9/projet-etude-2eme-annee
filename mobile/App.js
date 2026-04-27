@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 
 import { API_BASE_URL } from './src/config';
-import { createDiagnostic, fetchDiagnostics, fetchParcelles, login } from './src/services/api';
+import { createDiagnostic, fetchDiagnostics, fetchParcelles, login, register } from './src/services/api';
 
 const SESSION_KEY = 'parcellia.session';
 
@@ -70,11 +70,19 @@ function formatDate(value) {
 export default function App() {
   const [booting, setBooting] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
+  const [registerLoading, setRegisterLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [token, setToken] = useState('');
   const [user, setUser] = useState(null);
   const [credentials, setCredentials] = useState(defaultCredentials);
+  const [authMode, setAuthMode] = useState('login');
+  const [registerData, setRegisterData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
   const [screen, setScreen] = useState('dashboard');
   const [parcelles, setParcelles] = useState([]);
   const [diagnostics, setDiagnostics] = useState([]);
@@ -130,6 +138,37 @@ export default function App() {
       Alert.alert('Connexion impossible', error.message);
     } finally {
       setAuthLoading(false);
+    }
+  }
+
+  async function handleRegister() {
+    const name = registerData.name.trim();
+    const email = registerData.email.trim();
+    const { password, confirmPassword } = registerData;
+
+    if (!name || !email || !password) {
+      Alert.alert('Champs incomplets', 'Renseigne le nom, l email et le mot de passe.');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Mot de passe trop court', 'Utilise au moins 6 caracteres.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Mot de passe', 'Les mots de passe ne correspondent pas.');
+      return;
+    }
+
+    setRegisterLoading(true);
+    try {
+      const session = await register({ name, email, password });
+      await persistSession(session.token, session.user);
+    } catch (error) {
+      Alert.alert('Inscription impossible', error.message);
+    } finally {
+      setRegisterLoading(false);
     }
   }
 
@@ -238,29 +277,95 @@ export default function App() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Connexion</Text>
-              <TextInput
-                autoCapitalize="none"
-                keyboardType="email-address"
-                placeholder="Email"
-                placeholderTextColor="#7b887d"
-                style={styles.input}
-                value={credentials.email}
-                onChangeText={(email) => setCredentials((current) => ({ ...current, email }))}
-              />
-              <TextInput
-                placeholder="Mot de passe"
-                placeholderTextColor="#7b887d"
-                secureTextEntry
-                style={styles.input}
-                value={credentials.password}
-                onChangeText={(password) => setCredentials((current) => ({ ...current, password }))}
-              />
-              <Pressable style={styles.primaryButton} onPress={handleLogin} disabled={authLoading}>
-                <Text style={styles.primaryButtonText}>
-                  {authLoading ? 'Connexion...' : 'Entrer dans l application'}
-                </Text>
-              </Pressable>
+              <View style={styles.authTabs}>
+                <Pressable
+                  style={[styles.authTab, authMode === 'login' ? styles.authTabActive : null]}
+                  onPress={() => setAuthMode('login')}
+                >
+                  <Text style={[styles.authTabText, authMode === 'login' ? styles.authTabTextActive : null]}>
+                    Connexion
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.authTab, authMode === 'register' ? styles.authTabActive : null]}
+                  onPress={() => setAuthMode('register')}
+                >
+                  <Text style={[styles.authTabText, authMode === 'register' ? styles.authTabTextActive : null]}>
+                    Inscription
+                  </Text>
+                </Pressable>
+              </View>
+
+              {authMode === 'login' ? (
+                <>
+                  <Text style={styles.sectionTitle}>Connexion</Text>
+                  <TextInput
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    placeholder="Email"
+                    placeholderTextColor="#7b887d"
+                    style={styles.input}
+                    value={credentials.email}
+                    onChangeText={(email) => setCredentials((current) => ({ ...current, email }))}
+                  />
+                  <TextInput
+                    placeholder="Mot de passe"
+                    placeholderTextColor="#7b887d"
+                    secureTextEntry
+                    style={styles.input}
+                    value={credentials.password}
+                    onChangeText={(password) => setCredentials((current) => ({ ...current, password }))}
+                  />
+                  <Pressable style={styles.primaryButton} onPress={handleLogin} disabled={authLoading}>
+                    <Text style={styles.primaryButtonText}>
+                      {authLoading ? 'Connexion...' : 'Entrer dans l application'}
+                    </Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.sectionTitle}>Inscription</Text>
+                  <TextInput
+                    placeholder="Nom complet"
+                    placeholderTextColor="#7b887d"
+                    style={styles.input}
+                    value={registerData.name}
+                    onChangeText={(name) => setRegisterData((current) => ({ ...current, name }))}
+                  />
+                  <TextInput
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    placeholder="Email"
+                    placeholderTextColor="#7b887d"
+                    style={styles.input}
+                    value={registerData.email}
+                    onChangeText={(email) => setRegisterData((current) => ({ ...current, email }))}
+                  />
+                  <TextInput
+                    placeholder="Mot de passe"
+                    placeholderTextColor="#7b887d"
+                    secureTextEntry
+                    style={styles.input}
+                    value={registerData.password}
+                    onChangeText={(password) => setRegisterData((current) => ({ ...current, password }))}
+                  />
+                  <TextInput
+                    placeholder="Confirmer le mot de passe"
+                    placeholderTextColor="#7b887d"
+                    secureTextEntry
+                    style={styles.input}
+                    value={registerData.confirmPassword}
+                    onChangeText={(confirmPassword) =>
+                      setRegisterData((current) => ({ ...current, confirmPassword }))
+                    }
+                  />
+                  <Pressable style={styles.primaryButton} onPress={handleRegister} disabled={registerLoading}>
+                    <Text style={styles.primaryButtonText}>
+                      {registerLoading ? 'Inscription...' : 'Creer mon compte'}
+                    </Text>
+                  </Pressable>
+                </>
+              )}
               <Text style={styles.helperText}>API cible: {API_BASE_URL}</Text>
             </View>
           </View>
@@ -545,6 +650,29 @@ const styles = StyleSheet.create({
     color: '#1d2a1e',
     borderWidth: 1,
     borderColor: '#ddd4c2',
+  },
+  authTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#f3ead8',
+    borderRadius: 16,
+    padding: 4,
+    gap: 6,
+  },
+  authTab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 14,
+  },
+  authTabActive: {
+    backgroundColor: '#21543d',
+  },
+  authTabText: {
+    color: '#6d7a6e',
+    fontWeight: '700',
+  },
+  authTabTextActive: {
+    color: '#fffdf8',
   },
   primaryButton: {
     backgroundColor: '#c96c2d',

@@ -1,78 +1,52 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-const DEFAULT_REGION = {
-  latitude: 48.8566,
-  longitude: 2.3522,
-  latitudeDelta: 0.15,
-  longitudeDelta: 0.15,
-};
-
-function getRegion(parcelles) {
-  const coords = parcelles
-    .map((parcelle) => ({
-      latitude: Number(parcelle.latitude),
-      longitude: Number(parcelle.longitude),
-    }))
-    .filter((coord) => Number.isFinite(coord.latitude) && Number.isFinite(coord.longitude));
-
-  if (!coords.length) return DEFAULT_REGION;
-
-  const sum = coords.reduce(
-    (acc, coord) => ({
-      latitude: acc.latitude + coord.latitude,
-      longitude: acc.longitude + coord.longitude,
-    }),
-    { latitude: 0, longitude: 0 }
+function CultureBadge({ culture }) {
+  return (
+    <View style={styles.cultureBadge}>
+      <Text style={styles.cultureBadgeText}>{culture || 'Culture inconnue'}</Text>
+    </View>
   );
-
-  return {
-    latitude: sum.latitude / coords.length,
-    longitude: sum.longitude / coords.length,
-    latitudeDelta: 0.2,
-    longitudeDelta: 0.2,
-  };
 }
 
 export default function MapScreen({ parcelles, refreshing, onRefresh }) {
-  const region = getRegion(parcelles);
-  const hasCoords = parcelles.some((parcelle) =>
-    Number.isFinite(Number(parcelle.latitude)) && Number.isFinite(Number(parcelle.longitude))
-  );
-
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Carte des parcelles</Text>
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Parcelles</Text>
         <Pressable onPress={onRefresh} disabled={refreshing}>
           <Text style={styles.action}>{refreshing ? 'Actualisation...' : 'Actualiser'}</Text>
         </Pressable>
       </View>
 
-      <View style={styles.mapCard}>
-        <MapView style={styles.map} initialRegion={region}>
-          {parcelles.map((parcelle) => {
-            const latitude = Number(parcelle.latitude);
-            const longitude = Number(parcelle.longitude);
-
-            if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-
-            return (
-              <Marker
-                key={parcelle.id}
-                coordinate={{ latitude, longitude }}
-                title={parcelle.name}
-                description={`${parcelle.culture || 'Culture'} | ${parcelle.surface_ha || '-'} ha`}
-              />
-            );
-          })}
-        </MapView>
-      </View>
-
-      {!hasCoords && (
-        <Text style={styles.helper}>Aucune coordonnee valide pour afficher la carte.</Text>
+      {parcelles.length === 0 && (
+        <Text style={styles.empty}>Aucune parcelle enregistree.</Text>
       )}
-    </View>
+
+      {parcelles.map((parcelle) => {
+        const lat = Number(parcelle.latitude);
+        const lng = Number(parcelle.longitude);
+        const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+
+        return (
+          <View key={parcelle.id} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>{parcelle.name}</Text>
+              <CultureBadge culture={parcelle.culture} />
+            </View>
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Surface</Text>
+              <Text style={styles.cardValue}>{parcelle.surface_ha} ha</Text>
+            </View>
+            {hasCoords && (
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Coordonnees</Text>
+                <Text style={styles.cardValue}>{lat.toFixed(4)}, {lng.toFixed(4)}</Text>
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </ScrollView>
   );
 }
 
@@ -80,8 +54,9 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     gap: 14,
+    paddingBottom: 40,
   },
-  header: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -95,19 +70,54 @@ const styles = StyleSheet.create({
     color: '#21543d',
     fontWeight: '700',
   },
-  mapCard: {
-    borderRadius: 22,
-    overflow: 'hidden',
+  empty: {
+    color: '#6c776d',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 40,
+  },
+  card: {
+    backgroundColor: '#fffdf8',
+    borderRadius: 18,
+    padding: 16,
+    gap: 10,
     borderWidth: 1,
     borderColor: '#e0d8c7',
-    backgroundColor: '#fffdf8',
-    height: 360,
   },
-  map: {
-    flex: 1,
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  helper: {
-    color: '#6c776d',
-    fontSize: 13,
+  cardTitle: {
+    color: '#1d2a1e',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  cultureBadge: {
+    backgroundColor: '#d6ecda',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  cultureBadgeText: {
+    color: '#1d5c2e',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  cardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#eee7d8',
+    paddingTop: 8,
+  },
+  cardLabel: {
+    color: '#677267',
+    fontWeight: '600',
+  },
+  cardValue: {
+    color: '#1d2a1e',
+    fontWeight: '700',
   },
 });

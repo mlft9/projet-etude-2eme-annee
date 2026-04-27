@@ -314,15 +314,9 @@ export default function App() {
                   <Text style={styles.parcelleTitle}>{parcelle.name}</Text>
                   <Text style={styles.parcelleMeta}>
                     {parcelle.culture} | {parcelle.surface_ha} ha
-            <Pressable
-              style={[styles.tabButton, screen === 'map' ? styles.tabButtonActive : null]}
-              onPress={() => setScreen('map')}
-            >
-              <Text style={[styles.tabText, screen === 'map' ? styles.tabTextActive : null]}>Carte</Text>
-            </Pressable>
                   </Text>
                 </View>
-          {screen === 'dashboard' ? (
+                <Text style={styles.parcelleCoords}>
                   {Number(parcelle.latitude).toFixed(2)}, {Number(parcelle.longitude).toFixed(2)}
                 </Text>
               </View>
@@ -435,6 +429,10 @@ export default function App() {
           <Ionicons name="home" size={24} color={screen === 'dashboard' ? '#21543d' : '#8a9a8b'} />
           <Text style={[styles.tabLabel, screen === 'dashboard' ? styles.tabLabelActive : null]}>Accueil</Text>
         </Pressable>
+        <Pressable style={styles.tabItem} onPress={() => setScreen('map')}>
+          <Ionicons name="map" size={24} color={screen === 'map' ? '#21543d' : '#8a9a8b'} />
+          <Text style={[styles.tabLabel, screen === 'map' ? styles.tabLabelActive : null]}>Parcelles</Text>
+        </Pressable>
         <Pressable style={styles.fabButton} onPress={() => setScreen('new')}>
           <Ionicons name="add" size={32} color="#fffdf8" />
         </Pressable>
@@ -514,7 +512,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e0d8c7',
     paddingTop: 10,
-    paddingHorizontal: 40,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'space-between',
   },

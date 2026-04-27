@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, Polygon } from 'react-native-maps';
 
-const DEFAULT_REGION = {
+let WebView;
+if (Platform.OS !== 'web') {
+  WebView = require('react-native-webview').WebView;
+}
+
+const DEFAULT_CENTER = {
   latitude: 48.8566,
   longitude: 2.3522,
-  latitudeDelta: 0.15,
-  longitudeDelta: 0.15,
+  zoom: 11,
 };
 
-function getRegion(parcelles) {
+function getCenter(parcelles) {
   const coords = parcelles
     .map((parcelle) => ({
       latitude: Number(parcelle.latitude),
@@ -17,7 +20,7 @@ function getRegion(parcelles) {
     }))
     .filter((coord) => Number.isFinite(coord.latitude) && Number.isFinite(coord.longitude));
 
-  if (!coords.length) return DEFAULT_REGION;
+  if (!coords.length) return DEFAULT_CENTER;
 
   const sum = coords.reduce(
     (acc, coord) => ({
@@ -30,9 +33,125 @@ function getRegion(parcelles) {
   return {
     latitude: sum.latitude / coords.length,
     longitude: sum.longitude / coords.length,
-    latitudeDelta: 0.2,
-    longitudeDelta: 0.2,
+    zoom: 12,
   };
+}
+
+function buildLeafletHtml({ center, markers }) {
+  const safeMarkers = markers
+    .map((marker) => ({
+      lat: Number(marker.latitude),
+      lng: Number(marker.longitude),
+      title: String(marker.name || '').replace(/"/g, '\\"'),
+      description: String(
+        `${marker.culture || 'Culture'} | ${marker.surface_ha || '-'} ha`
+      ).replace(/"/g, '\\"'),
+    }))
+    .filter((marker) => Number.isFinite(marker.lat) && Number.isFinite(marker.lng));
+
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+      html, body, #map { height: 100%; margin: 0; padding: 0; }
+      body { background: #fffdf8; }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+      var map = L.map('map').setView([${center.latitude}, ${center.longitude}], ${center.zoom});
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
+
+      var parcelles = ${JSON.stringify(safeMarkers)};
+      parcelles.forEach(function (p) {
+        L.marker([p.lat, p.lng]).addTo(map).bindPopup('<b>' + p.title + '</b><br/>' + p.description);
+      });
+
+      var drawMode = false;
+      var points = [];
+      var polygon = null;
+      var pointMarkers = [];
+
+      function send(message) {
+        if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+          window.ReactNativeWebView.postMessage(JSON.stringify(message));
+        }
+      }
+
+      function refreshPolygon() {
+        if (polygon) { map.removeLayer(polygon); polygon = null; }
+        if (points.length >= 3) {
+          polygon = L.polygon(points, {
+            color: '#1f6f4a',
+            fillColor: '#21543d',
+            fillOpacity: 0.25,
+            weight: 2
+          }).addTo(map);
+          polygon.on('click', function () { send({ type: 'polygonPress' }); });
+        }
+      }
+
+      function refreshPointMarkers() {
+        pointMarkers.forEach(function (m) { map.removeLayer(m); });
+        pointMarkers = points.map(function (pt, idx) {
+          var marker = L.circleMarker(pt, {
+            radius: 7,
+            color: '#c96c2d',
+            fillColor: '#c96c2d',
+            fillOpacity: 0.9,
+            weight: 2
+          }).addTo(map);
+          marker.on('click', function () { send({ type: 'removePoint', index: idx }); });
+          return marker;
+        });
+      }
+
+      map.on('click', function (e) {
+        if (!drawMode) return;
+        points.push([e.latlng.lat, e.latlng.lng]);
+        refreshPolygon();
+        refreshPointMarkers();
+        send({ type: 'pointsChanged', count: points.length });
+      });
+
+      document.addEventListener('message', handleHostMessage);
+      window.addEventListener('message', handleHostMessage);
+
+      function handleHostMessage(event) {
+        try {
+          var data = JSON.parse(event.data);
+          if (data.type === 'setDrawMode') { drawMode = !!data.value; }
+          if (data.type === 'undo') {
+            points.pop();
+            refreshPolygon();
+            refreshPointMarkers();
+            send({ type: 'pointsChanged', count: points.length });
+          }
+          if (data.type === 'clear') {
+            points = [];
+            refreshPolygon();
+            refreshPointMarkers();
+            send({ type: 'pointsChanged', count: points.length });
+          }
+          if (data.type === 'removePoint' && typeof data.index === 'number') {
+            points.splice(data.index, 1);
+            refreshPolygon();
+            refreshPointMarkers();
+            send({ type: 'pointsChanged', count: points.length });
+          }
+        } catch (err) {}
+      }
+    </script>
+  </body>
+</html>`;
 }
 
 function CultureBadge({ culture }) {
@@ -44,32 +163,59 @@ function CultureBadge({ culture }) {
 }
 
 export default function MapScreen({ parcelles, refreshing, onRefresh }) {
-  const region = getRegion(parcelles);
+  const center = useMemo(() => getCenter(parcelles), [parcelles]);
   const hasCoords = parcelles.some((parcelle) =>
     Number.isFinite(Number(parcelle.latitude)) && Number.isFinite(Number(parcelle.longitude))
   );
   const [drawMode, setDrawMode] = useState(false);
-  const [points, setPoints] = useState([]);
+  const [pointCount, setPointCount] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
   const isWeb = Platform.OS === 'web';
 
-  function handleMapPress(event) {
-    if (!drawMode) return;
-    const { coordinate } = event.nativeEvent;
-    setPoints((current) => [...current, coordinate]);
+  const html = useMemo(
+    () => buildLeafletHtml({ center, markers: parcelles }),
+    [center, parcelles]
+  );
+
+  const webviewRef = useRef(null);
+  const iframeRef = useRef(null);
+
+  function postToMap(message) {
+    const payload = JSON.stringify(message);
+    if (isWeb) {
+      const win = iframeRef.current?.contentWindow;
+      if (win) win.postMessage(payload, '*');
+    } else if (webviewRef.current) {
+      webviewRef.current.injectJavaScript(
+        `(function(){try{var ev=new MessageEvent('message',{data:${JSON.stringify(payload)}});window.dispatchEvent(ev);document.dispatchEvent(ev);}catch(e){}})();true;`
+      );
+    }
   }
 
-  function removePoint(index) {
-    setPoints((current) => current.filter((_, currentIndex) => currentIndex !== index));
+  function toggleDrawMode() {
+    setDrawMode((current) => {
+      const next = !current;
+      postToMap({ type: 'setDrawMode', value: next });
+      return next;
+    });
   }
 
   function clearPoints() {
-    setPoints([]);
+    postToMap({ type: 'clear' });
   }
 
   function undoPoint() {
-    setPoints((current) => current.slice(0, -1));
+    postToMap({ type: 'undo' });
   }
+
+  function handleMapMessage(rawData) {
+    try {
+      const data = JSON.parse(rawData);
+      if (data.type === 'pointsChanged') setPointCount(data.count || 0);
+      if (data.type === 'polygonPress') setPanelOpen(true);
+    } catch {}
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.headerRow}>
@@ -80,60 +226,50 @@ export default function MapScreen({ parcelles, refreshing, onRefresh }) {
       </View>
 
       <View style={styles.mapCard}>
-        <MapView style={styles.map} initialRegion={region} onPress={handleMapPress}>
-          {parcelles.map((parcelle) => {
-            const latitude = Number(parcelle.latitude);
-            const longitude = Number(parcelle.longitude);
-
-            if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-
-            return (
-              <Marker
-                key={parcelle.id}
-                coordinate={{ latitude, longitude }}
-                title={parcelle.name}
-                description={`${parcelle.culture || 'Culture'} | ${parcelle.surface_ha || '-'} ha`}
-              />
-            );
-          })}
-
-          {points.length >= 3 && (
-            <Polygon
-              coordinates={points}
-              strokeColor="#1f6f4a"
-              fillColor="rgba(33, 84, 61, 0.25)"
-              strokeWidth={2}
-              onPress={() => setPanelOpen(true)}
-            />
-          )}
-
-          {points.map((point, index) => (
-            <Marker
-              key={`point-${index}`}
-              coordinate={point}
-              pinColor="#c96c2d"
-              onPress={() => removePoint(index)}
-              title={`Point ${index + 1}`}
-              description="Appuie pour supprimer"
-            />
-          ))}
-        </MapView>
+        {isWeb ? (
+          <iframe
+            ref={iframeRef}
+            title="map"
+            srcDoc={html}
+            style={{ width: '100%', height: '100%', border: 'none' }}
+            onLoad={() => {
+              const win = iframeRef.current?.contentWindow;
+              if (win) {
+                window.addEventListener('message', (event) => {
+                  if (event.source === win && typeof event.data === 'string') {
+                    handleMapMessage(event.data);
+                  }
+                });
+              }
+            }}
+          />
+        ) : (
+          <WebView
+            ref={webviewRef}
+            originWhitelist={['*']}
+            source={{ html }}
+            style={styles.map}
+            onMessage={(event) => handleMapMessage(event.nativeEvent.data)}
+            javaScriptEnabled
+            domStorageEnabled
+          />
+        )}
       </View>
 
       <View style={styles.drawPanel}>
         <Pressable
           style={[styles.drawButton, drawMode ? styles.drawButtonActive : null]}
-          onPress={() => setDrawMode((current) => !current)}
+          onPress={toggleDrawMode}
         >
           <Text style={[styles.drawButtonText, drawMode ? styles.drawButtonTextActive : null]}>
             {drawMode ? 'Mode dessin actif' : 'Mode dessin'}
           </Text>
         </Pressable>
         <View style={styles.drawActionsRow}>
-          <Pressable style={styles.drawAction} onPress={undoPoint} disabled={!points.length}>
+          <Pressable style={styles.drawAction} onPress={undoPoint} disabled={!pointCount}>
             <Text style={styles.drawActionText}>Annuler point</Text>
           </Pressable>
-          <Pressable style={styles.drawAction} onPress={clearPoints} disabled={!points.length}>
+          <Pressable style={styles.drawAction} onPress={clearPoints} disabled={!pointCount}>
             <Text style={styles.drawActionText}>Effacer</Text>
           </Pressable>
         </View>
@@ -221,6 +357,7 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+    backgroundColor: '#fffdf8',
   },
   helper: {
     color: '#6c776d',

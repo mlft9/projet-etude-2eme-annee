@@ -12,7 +12,7 @@ export default function NewDiagnosticScreen({ parcelles, selectedParcelleId, onS
       Alert.alert('Accès refusé', 'Autorise la caméra pour photographier la plante.');
       return;
     }
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.7, base64: true });
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.7, base64: true });
     if (!result.canceled && result.assets?.[0]) setSelectedImage(result.assets[0]);
   }
 
@@ -22,7 +22,7 @@ export default function NewDiagnosticScreen({ parcelles, selectedParcelleId, onS
       Alert.alert('Accès refusé', 'Autorise la photothèque pour envoyer une image.');
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.7, base64: true });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.7, base64: true });
     if (!result.canceled && result.assets?.[0]) setSelectedImage(result.assets[0]);
   }
 

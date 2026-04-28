@@ -16,6 +16,12 @@ Application mobile de diagnostic agricole par IA.
 
 ## Démarrage rapide
 
+```
+git clone https://github.com/mlft9/projet-etude-2eme-annee.git
+cd projet-etude-2eme-annee
+docker compose up --build -d
+```
+
 ### Prérequis
 - Docker + Docker Compose
 - Node.js 20+

@@ -1,191 +1,42 @@
 import { StatusBar } from 'expo-status-bar';
-import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { API_BASE_URL } from './src/config';
-import AuthScreen from './src/screens/AuthScreen';
-import MapScreen from './src/screens/MapScreen';
-import { createDiagnostic, fetchDiagnostics, fetchParcelles, login, register } from './src/services/api';
+import { useAuth } from './src/features/auth/hooks/useAuth';
+import AuthScreen from './src/features/auth/screens/AuthScreen';
+import DashboardScreen from './src/features/dashboard/screens/DashboardScreen';
+import DiagnosticsScreen from './src/features/diagnostics/screens/DiagnosticsScreen';
+import NewDiagnosticScreen from './src/features/diagnostics/screens/NewDiagnosticScreen';
+import MapScreen from './src/features/parcelles/screens/MapScreen';
+import AccountScreen from './src/features/account/screens/AccountScreen';
 
-const SESSION_KEY = 'parcellia.session';
-
-const defaultCredentials = {
-  email: 'demo@parcell-ia.com',
-  password: 'demo123',
-};
-
-function StatCard({ label, value, accent }) {
-  return (
-    <View style={styles.statCard}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, accent ? { color: accent } : null]}>{value}</Text>
-    </View>
-  );
-}
-
-function RiskBadge({ value }) {
-  const tone = value === 'Élevé'
-    ? styles.riskHigh
-    : value === 'Modéré'
-      ? styles.riskMedium
-      : value === 'Faible'
-        ? styles.riskLow
-        : styles.riskNone;
-
-  return (
-    <View style={[styles.badge, tone]}>
-      <Text style={styles.badgeText}>{value || 'Inconnu'}</Text>
-    </View>
-  );
-}
-
-function formatDate(value) {
-  if (!value) return 'Date inconnue';
-
-  try {
-    return new Date(value).toLocaleString('fr-FR', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return value;
-  }
-}
+import { fetchParcelles, fetchDiagnostics, createDiagnostic } from './src/shared/services/api';
 
 export default function App() {
   const insets = useSafeAreaInsets();
-  const [booting, setBooting] = useState(true);
-  const [authLoading, setAuthLoading] = useState(false);
-  const [registerLoading, setRegisterLoading] = useState(false);
+  const { booting, token, user, authLoading, registerLoading, handleLogin, handleRegister, clearSession } = useAuth();
+
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [token, setToken] = useState('');
-  const [user, setUser] = useState(null);
-  const [credentials, setCredentials] = useState(defaultCredentials);
-  const [authMode, setAuthMode] = useState('login');
-  const [registerData, setRegisterData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  });
   const [screen, setScreen] = useState('dashboard');
   const [parcelles, setParcelles] = useState([]);
   const [diagnostics, setDiagnostics] = useState([]);
   const [selectedParcelleId, setSelectedParcelleId] = useState(null);
-  const [selectedImage, setSelectedImage] = useState(null);
 
   useEffect(() => {
-    async function restoreSession() {
-      try {
-        const raw = await AsyncStorage.getItem(SESSION_KEY);
-        if (raw) {
-          const session = JSON.parse(raw);
-          setToken(session.token || '');
-          setUser(session.user || null);
-        }
-      } catch {
-        await AsyncStorage.removeItem(SESSION_KEY);
-      } finally {
-        setBooting(false);
-      }
-    }
-
-    restoreSession();
-  }, []);
-
-  useEffect(() => {
-    if (!token) return;
-    refreshData();
+    if (token) refreshData();
   }, [token]);
-
-  async function persistSession(nextToken, nextUser) {
-    setToken(nextToken);
-    setUser(nextUser);
-    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({ token: nextToken, user: nextUser }));
-  }
-
-  async function clearSession() {
-    setToken('');
-    setUser(null);
-    setParcelles([]);
-    setDiagnostics([]);
-    setSelectedParcelleId(null);
-    setSelectedImage(null);
-    await AsyncStorage.removeItem(SESSION_KEY);
-  }
-
-  async function handleLogin() {
-    setAuthLoading(true);
-    try {
-      const session = await login(credentials);
-      await persistSession(session.token, session.user);
-    } catch (error) {
-      Alert.alert('Connexion impossible', error.message);
-    } finally {
-      setAuthLoading(false);
-    }
-  }
-
-  async function handleRegister() {
-    const name = registerData.name.trim();
-    const email = registerData.email.trim();
-    const { password, confirmPassword } = registerData;
-
-    if (!name || !email || !password) {
-      Alert.alert('Champs incomplets', 'Renseigne le nom, l email et le mot de passe.');
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert('Mot de passe trop court', 'Utilise au moins 6 caracteres.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Mot de passe', 'Les mots de passe ne correspondent pas.');
-      return;
-    }
-
-    setRegisterLoading(true);
-    try {
-      const session = await register({ name, email, password });
-      await persistSession(session.token, session.user);
-    } catch (error) {
-      Alert.alert('Inscription impossible', error.message);
-    } finally {
-      setRegisterLoading(false);
-    }
-  }
 
   async function refreshData() {
     if (!token) return;
-
     setRefreshing(true);
     try {
-      const [parcellesData, diagnosticsData] = await Promise.all([
-        fetchParcelles(token),
-        fetchDiagnostics(token),
-      ]);
-
-      setParcelles(parcellesData);
-      setDiagnostics(diagnosticsData);
-      setSelectedParcelleId((current) => current || parcellesData[0]?.id || null);
+      const [p, d] = await Promise.all([fetchParcelles(token), fetchDiagnostics(token)]);
+      setParcelles(p);
+      setDiagnostics(d);
+      setSelectedParcelleId((curr) => curr || p[0]?.id || null);
     } catch (error) {
       Alert.alert('Synchronisation impossible', error.message);
     } finally {
@@ -193,60 +44,33 @@ export default function App() {
     }
   }
 
-  async function takePhoto() {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Accès refusé', 'Autorise la caméra pour photographier la plante.');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
-      base64: true,
-    });
-
-    if (!result.canceled && result.assets?.[0]) {
-      setSelectedImage(result.assets[0]);
+  async function handleLogin_(credentials) {
+    try {
+      await handleLogin(credentials);
+    } catch (error) {
+      Alert.alert('Connexion impossible', error.message);
     }
   }
 
-  async function pickImage() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Accès refusé', 'Autorise la photothèque pour envoyer une image.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
-      base64: true,
-    });
-
-    if (!result.canceled && result.assets?.[0]) {
-      setSelectedImage(result.assets[0]);
+  async function handleRegister_(data) {
+    const { name, email, password, confirmPassword } = data;
+    if (!name || !email || !password) { Alert.alert('Champs incomplets', 'Renseigne le nom, l email et le mot de passe.'); return; }
+    if (password.length < 6) { Alert.alert('Mot de passe trop court', 'Utilise au moins 6 caracteres.'); return; }
+    if (password !== confirmPassword) { Alert.alert('Mot de passe', 'Les mots de passe ne correspondent pas.'); return; }
+    try {
+      await handleRegister({ name: name.trim(), email: email.trim(), password });
+    } catch (error) {
+      Alert.alert('Inscription impossible', error.message);
     }
   }
 
-  async function handleCreateDiagnostic() {
-    if (!selectedImage?.base64) {
-      Alert.alert('Image requise', 'Choisis une photo de feuille ou de plante avant de lancer l’analyse.');
-      return;
-    }
-
+  async function handleCreateDiagnostic(payload) {
     setSubmitting(true);
     try {
-      await createDiagnostic(token, {
-        parcelle_id: selectedParcelleId,
-        image_base64: selectedImage.base64,
-      });
-      setSelectedImage(null);
+      await createDiagnostic(token, payload);
       setScreen('dashboard');
       await refreshData();
-      Alert.alert('Diagnostic créé', 'L’analyse est disponible dans la liste.');
+      Alert.alert('Diagnostic créé', "L'analyse est disponible dans la liste.");
     } catch (error) {
       Alert.alert('Analyse indisponible', error.message);
     } finally {
@@ -265,22 +89,38 @@ export default function App() {
   if (!token || !user) {
     return (
       <AuthScreen
-        authMode={authMode}
-        setAuthMode={setAuthMode}
-        credentials={credentials}
-        setCredentials={setCredentials}
-        registerData={registerData}
-        setRegisterData={setRegisterData}
         authLoading={authLoading}
         registerLoading={registerLoading}
-        onLogin={handleLogin}
-        onRegister={handleRegister}
-        apiBaseUrl={API_BASE_URL}
+        onLogin={handleLogin_}
+        onRegister={handleRegister_}
       />
     );
   }
 
-  const elevatedCount = diagnostics.filter((item) => item.niveau_risque === 'Élevé').length;
+  function renderScreen() {
+    switch (screen) {
+      case 'dashboard':
+        return <DashboardScreen user={user} parcelles={parcelles} diagnostics={diagnostics} refreshing={refreshing} onRefresh={refreshData} onViewAllDiagnostics={() => setScreen('diagnostics')} />;
+      case 'map':
+        return <ScrollView contentContainerStyle={styles.mapWrapper}><MapScreen parcelles={parcelles} refreshing={refreshing} onRefresh={refreshData} token={token} /></ScrollView>;
+      case 'diagnostics':
+        return <DiagnosticsScreen diagnostics={diagnostics} parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} refreshing={refreshing} onRefresh={refreshData} />;
+      case 'new':
+        return <NewDiagnosticScreen parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} onSubmit={handleCreateDiagnostic} submitting={submitting} />;
+      case 'account':
+        return <AccountScreen user={user} onLogout={clearSession} />;
+      default:
+        return null;
+    }
+  }
+
+  const tabs = [
+    { key: 'dashboard', icon: 'home', label: 'Accueil' },
+    { key: 'map', icon: 'map', label: 'Parcelles' },
+    { key: 'new', icon: null, label: null },
+    { key: 'diagnostics', icon: 'leaf', label: 'Diagnostics' },
+    { key: 'account', icon: 'person', label: 'Compte' },
+  ];
 
   return (
     <View style={styles.root}>
@@ -292,569 +132,38 @@ export default function App() {
             <Text style={styles.headerTitle}>Pilotage des parcelles</Text>
           </View>
         </View>
-
-        {screen === 'dashboard' ? (
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            <View style={styles.statsRow}>
-              <StatCard label="Parcelles" value={parcelles.length} />
-              <StatCard label="Diagnostics" value={diagnostics.length} />
-              <StatCard label="Risque eleve" value={elevatedCount} accent="#9f2f1f" />
-            </View>
-
-            <View style={styles.card}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Mes parcelles</Text>
-                <Pressable onPress={refreshData} disabled={refreshing}>
-                  <Text style={styles.inlineAction}>{refreshing ? 'Actualisation...' : 'Actualiser'}</Text>
-                </Pressable>
-              </View>
-              {parcelles.map((parcelle) => (
-                <View key={parcelle.id} style={styles.parcelleRow}>
-                  <View>
-                    <Text style={styles.parcelleTitle}>{parcelle.name}</Text>
-                    <Text style={styles.parcelleMeta}>
-                      {parcelle.culture} | {parcelle.surface_ha} ha
-                    </Text>
-                  </View>
-                  <Text style={styles.parcelleCoords}>
-                    {Number(parcelle.latitude).toFixed(2)}, {Number(parcelle.longitude).toFixed(2)}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.card}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Derniers diagnostics</Text>
-                <Pressable onPress={() => setScreen('diagnostics')}>
-                  <Text style={styles.inlineAction}>Voir tout</Text>
-                </Pressable>
-              </View>
-              {diagnostics.slice(0, 3).map((diagnostic) => (
-                <View key={diagnostic.id} style={styles.diagnosticCard}>
-                  <View style={styles.diagnosticHeader}>
-                    <View style={styles.diagnosticHeaderText}>
-                      <Text style={styles.diagnosticTitle}>{diagnostic.maladie_detectee}</Text>
-                      <Text style={styles.diagnosticMeta}>
-                        {diagnostic.parcelle_name || 'Parcelle non rattachee'} | {formatDate(diagnostic.created_at)}
-                      </Text>
-                    </View>
-                    <RiskBadge value={diagnostic.niveau_risque} />
-                  </View>
-                  <Text style={styles.diagnosticAdvice}>{diagnostic.conseil}</Text>
-                </View>
-              ))}
-            </View>
-          </ScrollView>
-        ) : screen === 'diagnostics' ? (
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            <View style={styles.statsRow}>
-              <StatCard label="Total" value={diagnostics.length} />
-              <StatCard label="Risque eleve" value={elevatedCount} accent="#9f2f1f" />
-              <StatCard
-                label="Sans souci"
-                value={diagnostics.filter((item) => item.niveau_risque === 'Aucun').length}
-                accent="#21543d"
-              />
-            </View>
-
-            <View style={styles.card}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Filtrer par parcelle</Text>
-                <Pressable onPress={() => setSelectedParcelleId(null)}>
-                  <Text style={styles.inlineAction}>Tout</Text>
-                </Pressable>
-              </View>
-              <View style={styles.selectorList}>
-                {parcelles.map((parcelle) => {
-                  const active = selectedParcelleId === parcelle.id;
-                  return (
-                    <Pressable
-                      key={parcelle.id}
-                      style={[styles.selectorPill, active ? styles.selectorPillActive : null]}
-                      onPress={() => setSelectedParcelleId(active ? null : parcelle.id)}
-                    >
-                      <Text style={[styles.selectorText, active ? styles.selectorTextActive : null]}>
-                        {parcelle.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={styles.card}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Historique</Text>
-                <Pressable onPress={refreshData} disabled={refreshing}>
-                  <Text style={styles.inlineAction}>{refreshing ? 'Actualisation...' : 'Actualiser'}</Text>
-                </Pressable>
-              </View>
-              {(selectedParcelleId
-                ? diagnostics.filter((d) => d.parcelle_id === selectedParcelleId)
-                : diagnostics
-              ).map((diagnostic) => (
-                <View key={diagnostic.id} style={styles.diagnosticCard}>
-                  <View style={styles.diagnosticHeader}>
-                    <View style={styles.diagnosticHeaderText}>
-                      <Text style={styles.diagnosticTitle}>{diagnostic.maladie_detectee}</Text>
-                      <Text style={styles.diagnosticMeta}>
-                        {diagnostic.parcelle_name || 'Parcelle non rattachee'} | {formatDate(diagnostic.created_at)}
-                      </Text>
-                    </View>
-                    <RiskBadge value={diagnostic.niveau_risque} />
-                  </View>
-                  <Text style={styles.diagnosticAdvice}>{diagnostic.conseil}</Text>
-                </View>
-              ))}
-              {diagnostics.length === 0 && (
-                <Text style={styles.helperText}>Aucun diagnostic enregistre.</Text>
-              )}
-            </View>
-          </ScrollView>
-        ) : screen === 'account' ? (
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Mon compte</Text>
-              <View style={styles.accountRow}>
-                <Text style={styles.accountLabel}>Nom</Text>
-                <Text style={styles.accountValue}>{user.name}</Text>
-              </View>
-              <View style={styles.accountRow}>
-                <Text style={styles.accountLabel}>Email</Text>
-                <Text style={styles.accountValue}>{user.email}</Text>
-              </View>
-              <View style={styles.accountRow}>
-                <Text style={styles.accountLabel}>API</Text>
-                <Text style={styles.accountValue} numberOfLines={1}>{API_BASE_URL}</Text>
-              </View>
-            </View>
-            <Pressable style={styles.dangerButton} onPress={clearSession}>
-              <Text style={styles.dangerButtonText}>Se deconnecter</Text>
-            </Pressable>
-          </ScrollView>
-        ) : screen === 'new' ? (
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Associer la parcelle</Text>
-              <View style={styles.selectorList}>
-                {parcelles.map((parcelle) => {
-                  const active = selectedParcelleId === parcelle.id;
-                  return (
-                    <Pressable
-                      key={parcelle.id}
-                      style={[styles.selectorPill, active ? styles.selectorPillActive : null]}
-                      onPress={() => setSelectedParcelleId(parcelle.id)}
-                    >
-                      <Text style={[styles.selectorText, active ? styles.selectorTextActive : null]}>
-                        {parcelle.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Photo a analyser</Text>
-              <View style={styles.imageSourceRow}>
-                <Pressable style={[styles.primaryButton, styles.imageSourceButton]} onPress={takePhoto}>
-                  <Text style={styles.primaryButtonText}>Prendre une photo</Text>
-                </Pressable>
-                <Pressable style={[styles.secondaryButton, styles.imageSourceButton]} onPress={pickImage}>
-                  <Text style={styles.secondaryButtonText}>Galerie</Text>
-                </Pressable>
-              </View>
-              {selectedImage ? (
-                <View style={styles.previewBlock}>
-                  <Image source={{ uri: selectedImage.uri }} style={styles.previewImage} />
-                  <Text style={styles.helperText}>Image prete pour l analyse IA</Text>
-                </View>
-              ) : (
-                <Text style={styles.helperText}>Aucune image selectionnee</Text>
-              )}
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Envoyer au backend</Text>
-              <Text style={styles.helperText}>
-                Le backend tourne sur {API_BASE_URL}. Si tu testes depuis un autre reseau, pense a ajuster l IP.
-              </Text>
-              <Pressable style={styles.primaryButton} onPress={handleCreateDiagnostic} disabled={submitting}>
-                <Text style={styles.primaryButtonText}>
-                  {submitting ? 'Analyse en cours...' : 'Lancer le diagnostic'}
-                </Text>
-              </Pressable>
-            </View>
-          </ScrollView>
-        ) : (
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            <MapScreen parcelles={parcelles} refreshing={refreshing} onRefresh={refreshData} token={token} />
-          </ScrollView>
-        )}
-
+        {renderScreen()}
       </SafeAreaView>
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 4 }]}>
-        <Pressable style={styles.tabItem} onPress={() => setScreen('dashboard')}>
-          <Ionicons name="home" size={24} color={screen === 'dashboard' ? '#21543d' : '#8a9a8b'} />
-          <Text style={[styles.tabLabel, screen === 'dashboard' ? styles.tabLabelActive : null]}>Accueil</Text>
-        </Pressable>
-        <Pressable style={styles.tabItem} onPress={() => setScreen('map')}>
-          <Ionicons name="map" size={24} color={screen === 'map' ? '#21543d' : '#8a9a8b'} />
-          <Text style={[styles.tabLabel, screen === 'map' ? styles.tabLabelActive : null]}>Parcelles</Text>
-        </Pressable>
-        <Pressable style={styles.fabButton} onPress={() => setScreen('new')}>
-          <Ionicons name="add" size={32} color="#fffdf8" />
-        </Pressable>
-        <Pressable style={styles.tabItem} onPress={() => setScreen('diagnostics')}>
-          <Ionicons name="leaf" size={24} color={screen === 'diagnostics' ? '#21543d' : '#8a9a8b'} />
-          <Text style={[styles.tabLabel, screen === 'diagnostics' ? styles.tabLabelActive : null]}>Diagnostics</Text>
-        </Pressable>
-        <Pressable style={styles.tabItem} onPress={() => setScreen('account')}>
-          <Ionicons name="person" size={24} color={screen === 'account' ? '#21543d' : '#8a9a8b'} />
-          <Text style={[styles.tabLabel, screen === 'account' ? styles.tabLabelActive : null]}>Compte</Text>
-        </Pressable>
+        {tabs.map((tab) =>
+          tab.icon === null ? (
+            <Pressable key={tab.key} style={styles.fabButton} onPress={() => setScreen('new')}>
+              <Ionicons name="add" size={32} color="#fffdf8" />
+            </Pressable>
+          ) : (
+            <Pressable key={tab.key} style={styles.tabItem} onPress={() => setScreen(tab.key)}>
+              <Ionicons name={tab.icon} size={24} color={screen === tab.key ? '#21543d' : '#8a9a8b'} />
+              <Text style={[styles.tabLabel, screen === tab.key ? styles.tabLabelActive : null]}>{tab.label}</Text>
+            </Pressable>
+          )
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#f3f0e8',
-  },
-  flex: {
-    flex: 1,
-  },
-  safeContent: {
-    flex: 1,
-  },
-  loadingScreen: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f3f0e8',
-  },
-  authShell: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 22,
-    gap: 18,
-    backgroundColor: '#f3f0e8',
-  },
-  heroPanel: {
-    backgroundColor: '#21543d',
-    borderRadius: 24,
-    padding: 24,
-    gap: 12,
-  },
-  eyebrow: {
-    color: '#446347',
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  heroTitle: {
-    color: '#fffdf8',
-    fontSize: 30,
-    lineHeight: 34,
-    fontWeight: '800',
-  },
-  heroText: {
-    color: '#dce7dd',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: '#1d2a1e',
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  bottomBar: {
-    flexDirection: 'row',
-    backgroundColor: '#fffdf8',
-    borderTopWidth: 1,
-    borderTopColor: '#e0d8c7',
-    paddingTop: 10,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  tabLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#8a9a8b',
-  },
-  tabLabelActive: {
-    color: '#21543d',
-  },
-  fabButton: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: '#21543d',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 18,
-    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.18)',
-    elevation: 8,
-  },
-  accountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#eee7d8',
-    paddingTop: 12,
-  },
-  accountLabel: {
-    color: '#677267',
-    fontWeight: '600',
-  },
-  accountValue: {
-    color: '#1d2a1e',
-    fontWeight: '700',
-    maxWidth: '65%',
-    textAlign: 'right',
-  },
-  dangerButton: {
-    backgroundColor: '#9f2f1f',
-    borderRadius: 16,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  dangerButtonText: {
-    color: '#fffaf5',
-    fontWeight: '800',
-    fontSize: 15,
-  },
-  scrollContent: {
-    padding: 20,
-    gap: 16,
-    paddingBottom: 110,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#fffdf8',
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e0d8c7',
-    gap: 8,
-  },
-  statLabel: {
-    color: '#6f7b70',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  statValue: {
-    color: '#1d2a1e',
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  card: {
-    backgroundColor: '#fffdf8',
-    borderRadius: 22,
-    padding: 18,
-    gap: 14,
-    borderWidth: 1,
-    borderColor: '#e0d8c7',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    color: '#1d2a1e',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  inlineAction: {
-    color: '#21543d',
-    fontWeight: '700',
-  },
-  authTabs: {
-    flexDirection: 'row',
-    backgroundColor: '#f3ead8',
-    borderRadius: 16,
-    padding: 4,
-    gap: 6,
-  },
-  authTab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 14,
-  },
-  authTabActive: {
-    backgroundColor: '#21543d',
-  },
-  authTabText: {
-    color: '#6d7a6e',
-    fontWeight: '700',
-  },
-  authTabTextActive: {
-    color: '#fffdf8',
-  },
-  primaryButton: {
-    backgroundColor: '#c96c2d',
-    borderRadius: 16,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#fffaf5',
-    fontWeight: '800',
-    fontSize: 15,
-  },
-  secondaryButton: {
-    backgroundColor: '#e8e1d3',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-  },
-  secondaryButtonText: {
-    color: '#4d5a4d',
-    fontWeight: '700',
-  },
-  helperText: {
-    color: '#6c776d',
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  parcelleRow: {
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#eee7d8',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  parcelleTitle: {
-    color: '#213123',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  parcelleMeta: {
-    color: '#677267',
-    marginTop: 4,
-  },
-  parcelleCoords: {
-    color: '#7a847b',
-    fontSize: 12,
-    maxWidth: 110,
-    textAlign: 'right',
-  },
-  diagnosticCard: {
-    borderTopWidth: 1,
-    borderTopColor: '#eee7d8',
-    paddingTop: 14,
-    gap: 10,
-  },
-  diagnosticHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  diagnosticHeaderText: {
-    flex: 1,
-    gap: 4,
-  },
-  diagnosticTitle: {
-    color: '#1d2a1e',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  diagnosticMeta: {
-    color: '#677267',
-    fontSize: 12,
-  },
-  diagnosticAdvice: {
-    color: '#374238',
-    lineHeight: 21,
-  },
-  badge: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    alignSelf: 'flex-start',
-  },
-  badgeText: {
-    color: '#fffdf8',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  riskHigh: {
-    backgroundColor: '#9f2f1f',
-  },
-  riskMedium: {
-    backgroundColor: '#cf8e2a',
-  },
-  riskLow: {
-    backgroundColor: '#53815a',
-  },
-  riskNone: {
-    backgroundColor: '#7d8c85',
-  },
-  selectorList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  selectorPill: {
-    backgroundColor: '#ece3d5',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  selectorPillActive: {
-    backgroundColor: '#21543d',
-  },
-  selectorText: {
-    color: '#506052',
-    fontWeight: '700',
-  },
-  selectorTextActive: {
-    color: '#fffdf8',
-  },
-  imageSourceRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  imageSourceButton: {
-    flex: 1,
-    paddingVertical: 15,
-    alignItems: 'center',
-    borderRadius: 16,
-  },
-  previewBlock: {
-    gap: 10,
-  },
-  previewImage: {
-    width: '100%',
-    height: 240,
-    borderRadius: 18,
-    backgroundColor: '#ddd4c2',
-  },
+  root: { flex: 1, backgroundColor: '#f3f0e8' },
+  safeContent: { flex: 1 },
+  loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f0e8' },
+  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  eyebrow: { color: '#446347', fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  headerTitle: { color: '#1d2a1e', fontSize: 24, fontWeight: '800' },
+  mapWrapper: { flexGrow: 1 },
+  bottomBar: { flexDirection: 'row', backgroundColor: '#fffdf8', borderTopWidth: 1, borderTopColor: '#e0d8c7', paddingTop: 10, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'space-between' },
+  tabItem: { flex: 1, alignItems: 'center', gap: 4 },
+  tabLabel: { fontSize: 11, fontWeight: '600', color: '#8a9a8b' },
+  tabLabelActive: { color: '#21543d' },
+  fabButton: { width: 62, height: 62, borderRadius: 31, backgroundColor: '#21543d', alignItems: 'center', justifyContent: 'center', marginBottom: 18, elevation: 8 },
 });

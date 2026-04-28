@@ -11,4 +11,4 @@ EXPOSE 8081 19000 19001
 
 ENV EXPO_NO_DOTENV=1
 
-CMD ["npx", "expo", "start", "--web", "--host", "lan", "--port", "8081"]
+CMD ["npx", "expo", "start", "--web", "--host", "localhost", "--port", "8081"]

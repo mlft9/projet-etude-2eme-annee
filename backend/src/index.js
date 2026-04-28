@@ -1,6 +1,9 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
+const pool = require('./db/pool');
 
 const authRoutes = require('./routes/auth');
 const diagnosticsRoutes = require('./routes/diagnostics');
@@ -20,6 +23,16 @@ app.use('/auth', authRoutes);
 app.use('/diagnostics', diagnosticsRoutes);
 app.use('/parcelles', parcellesRoutes);
 
-app.listen(PORT, () => {
-  console.log(`Backend parcell-ia démarré sur le port ${PORT}`);
+async function start() {
+  const sql = fs.readFileSync(path.join(__dirname, '../db/init.sql'), 'utf8');
+  await pool.query(sql);
+  console.log('Schéma DB initialisé');
+  app.listen(PORT, () => {
+    console.log(`Backend parcell-ia démarré sur le port ${PORT}`);
+  });
+}
+
+start().catch(err => {
+  console.error('Erreur démarrage:', err);
+  process.exit(1);
 });

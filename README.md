@@ -1,26 +1,23 @@
 # Parcell-IA — Projet d'étude B2 SupDeVinci
 ## Groupe : Maxime · Jean-Marc · Antoine L · Rémi
 
-Application mobile de diagnostic agricole par IA.
+Application mobile de diagnostic agricole par IA : photo d'une plante → analyse GPT-4o Vision → maladie détectée + niveau de risque + conseil agronomique.
 
 ---
 
 ## Stack
-- **Mobile** : React Native (Expo)
-- **Backend** : Node.js + Express
-- **BDD** : PostgreSQL
-- **Infra** : Docker + Azure Container Apps
-- **IA** : Azure OpenAI GPT-4o Vision
+
+| Couche | Techno |
+|---|---|
+| Mobile | React Native (Expo) |
+| Backend | Node.js + Express |
+| Base de données | PostgreSQL 16 |
+| Infra | Docker + Azure Container Apps |
+| IA | Azure OpenAI GPT-4o Vision (fallback OpenAI direct, fallback mock) |
 
 ---
 
 ## Démarrage rapide
-
-```
-git clone https://github.com/mlft9/projet-etude-2eme-annee.git
-cd projet-etude-2eme-annee
-docker compose up --build -d
-```
 
 ### Prérequis
 - Docker + Docker Compose
@@ -29,26 +26,49 @@ docker compose up --build -d
 
 ### 1. Cloner et configurer
 ```bash
-git clone <repo>
-cd projet-étude
+git clone https://github.com/mlft9/projet-etude-2eme-annee.git
+cd projet-etude-2eme-annee
 cp .env.example .env
-# Remplir les clés dans .env
+# Remplir les clés dans .env (voir section Variables d'environnement)
 ```
 
-### 2. Lancer le backend + base de données
+### 2. Lancer le backend
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
-- Backend dispo sur http://localhost:3000
-- Test santé : http://localhost:3000/health
+- Backend : http://localhost:3000
+- Santé : http://localhost:3000/health
+
+> Pour lancer aussi une DB PostgreSQL locale, ajouter le profil :
+> ```bash
+> docker compose --profile local-db up --build -d
+> ```
 
 ### 3. Lancer l'app mobile
 ```bash
 cd mobile
-npm install
+npx expo install   # installe les dépendances Expo correctes
 npx expo start
 ```
-Scanner le QR code avec Expo Go.
+Scanner le QR code avec Expo Go. Le téléphone doit être sur le même réseau Wi-Fi que la machine.
+
+---
+
+## Variables d'environnement
+
+Copier `.env.example` en `.env` et renseigner :
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | URL PostgreSQL complète |
+| `DB_SSL` | `true` si Azure, `false` en local |
+| `AZURE_OPENAI_ENDPOINT` | Endpoint Azure OpenAI |
+| `AZURE_OPENAI_KEY` | Clé Azure OpenAI |
+| `AZURE_OPENAI_DEPLOYMENT` | Nom du déploiement (ex: `gpt-4o`) |
+| `OPENAI_API_KEY` | Clé OpenAI directe (fallback) |
+| `JWT_SECRET` | Secret JWT (changer en prod) |
+
+Si aucune clé IA n'est configurée, l'app bascule automatiquement sur une réponse mock.
 
 ---
 
@@ -58,34 +78,52 @@ Scanner le QR code avec Expo Go.
 
 ---
 
-## Endpoints API principaux
-| Méthode | Route | Description |
-|---|---|---|
-| POST | `/auth/login` | Connexion |
-| GET | `/diagnostics` | Liste diagnostics |
-| POST | `/diagnostics` | Nouveau diagnostic (image_base64) |
-| GET | `/parcelles` | Liste parcelles |
+## Endpoints API
+
+Toutes les routes (sauf auth) nécessitent un header `Authorization: Bearer <token>`.
+
+| Méthode | Route | Auth | Description |
+|---|---|---|---|
+| POST | `/auth/login` | Non | Connexion |
+| POST | `/auth/register` | Non | Inscription |
+| GET | `/parcelles` | Oui | Liste des parcelles de l'utilisateur |
+| POST | `/parcelles` | Oui | Créer une parcelle (nom, culture, géométrie) |
+| GET | `/diagnostics` | Oui | Liste des diagnostics de l'utilisateur |
+| POST | `/diagnostics` | Oui | Lancer un diagnostic (image_base64 + parcelle_id) |
+| GET | `/health` | Non | Santé du serveur |
 
 ---
 
 ## Structure du projet
+
 ```
 projet-étude/
-├── backend/          # API Node.js/Express
+├── backend/
 │   └── src/
-│       ├── routes/   # auth, diagnostics, parcelles
-│       ├── services/ # aiProvider (Azure OpenAI)
-│       ├── db/       # connexion PostgreSQL
-│       └── middleware/
-├── mobile/           # App React Native (Expo)
+│       ├── modules/
+│       │   ├── auth/          # login, register (controller, service, repo, dto, entity)
+│       │   ├── diagnostics/   # diagnostic IA (controller, service, repo, dto, entity)
+│       │   └── parcelles/     # gestion parcelles (controller, service, repo, dto, entity)
+│       ├── providers/
+│       │   └── ai.provider.js # Azure OpenAI / OpenAI / mock
+│       ├── config/
+│       │   └── database.js    # connexion Sequelize
+│       ├── migrations/        # migrations Sequelize
+│       └── container.js       # injection de dépendances
+├── mobile/
+│   └── src/
+│       ├── features/
+│       │   ├── auth/          # écrans login/register + hook useAuth
+│       │   ├── dashboard/     # tableau de bord
+│       │   ├── diagnostics/   # liste et création de diagnostics
+│       │   ├── parcelles/     # carte Leaflet + gestion parcelles
+│       │   └── account/       # profil et déconnexion
+│       ├── shared/
+│       │   ├── services/api.js # client HTTP centralisé
+│       │   └── utils/         # geo, date
+│       └── config.js          # API_BASE_URL
 ├── db/
-│   └── init.sql      # Schéma + données seed
+│   └── init.sql               # schéma initial + seed
 ├── docker-compose.yml
 └── .env.example
 ```
-
----
-
-## URL de production
-- App : [parcell-ia.com](https://parcell-ia.com)
-- API : [api.parcell-ia.com](https://api.parcell-ia.com)

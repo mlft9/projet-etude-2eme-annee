@@ -38,6 +38,7 @@ services:
   mobile:
     build: ./mobile
     container_name: parcell-ia-mobile
+    profiles: ["mobile"]
     restart: unless-stopped
     depends_on:
       - backend

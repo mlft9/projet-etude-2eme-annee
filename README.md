@@ -39,18 +39,26 @@ docker compose up --build -d
 - Backend : http://localhost:3000
 - Santé : http://localhost:3000/health
 
-> Pour lancer aussi une DB PostgreSQL locale, ajouter le profil :
+> **Profils disponibles :**
 > ```bash
+> # Avec DB PostgreSQL locale
 > docker compose --profile local-db up --build -d
+> # Avec Expo web (navigateur, port 8081)
+> docker compose --profile mobile up --build -d
 > ```
 
-### 3. Lancer l'app mobile
+### 3. Lancer l'app mobile sur téléphone (Expo Go)
+
+Le service Docker mobile tourne en mode web uniquement. Pour développer sur un vrai téléphone, lancer Expo **en local** :
+
 ```bash
 cd mobile
 npx expo install   # installe les dépendances Expo correctes
 npx expo start
 ```
 Scanner le QR code avec Expo Go. Le téléphone doit être sur le même réseau Wi-Fi que la machine.
+
+> Vérifier que `src/config.js` pointe sur l'IP de ta machine (ex: `http://192.168.x.x:3000`).
 
 ---
 

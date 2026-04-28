@@ -33,18 +33,23 @@ cp .env.example .env
 ```
 
 ### 2. Lancer le backend
+
+**Dev local (backend + DB PostgreSQL) :**
+```bash
+docker compose --profile local-db up --build -d
+```
+
+**Avec Azure PostgreSQL** (mettre `DATABASE_URL` dans `.env`) :
 ```bash
 docker compose up --build -d
 ```
+
 - Backend : http://localhost:3000
 - Santé : http://localhost:3000/health
 
-> **Profils disponibles :**
+> **Profil Expo web (navigateur, port 8081) :**
 > ```bash
-> # Avec DB PostgreSQL locale
-> docker compose --profile local-db up --build -d
-> # Avec Expo web (navigateur, port 8081)
-> docker compose --profile mobile up --build -d
+> docker compose --profile local-db --profile mobile up --build -d
 > ```
 
 ### 3. Lancer l'app mobile sur téléphone (Expo Go)
@@ -58,7 +63,7 @@ npx expo start
 ```
 Scanner le QR code avec Expo Go. Le téléphone doit être sur le même réseau Wi-Fi que la machine.
 
-> Vérifier que `src/config.js` pointe sur l'IP de ta machine (ex: `http://192.168.x.x:3000`).
+> L'URL du backend est détectée automatiquement depuis l'IP du serveur Expo — aucune configuration manuelle nécessaire.
 
 ---
 

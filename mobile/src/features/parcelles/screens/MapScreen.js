@@ -87,20 +87,33 @@ function buildLeafletHtml({ center, savedPolygons }) {
           .addTo(savedLayer)
           .bindPopup(popupHtml, { maxWidth: 260 });
 
-        capteurs.forEach(function(c, idx) {
-          var pos;
-          if (capteurs.length === 1) {
-            pos = [centLat, centLng];
-          } else {
-            var angle = (2 * Math.PI * idx) / capteurs.length;
-            var offset = 0.0004;
-            pos = [centLat + offset * Math.sin(angle), centLng + offset * Math.cos(angle)];
-          }
-          L.circle(pos, { radius: 50, color: '#c96c2d', fillColor: '#c96c2d', fillOpacity: 0.08, weight: 1.5, dashArray: '5 4', interactive: false })
-            .addTo(savedLayer);
-          L.circle(pos, { radius: 8, color: '#c96c2d', fillColor: '#c96c2d', fillOpacity: 1, weight: 2, interactive: false })
-            .addTo(savedLayer);
-        });
+        if (capteurs.length > 0) {
+          var latMin = Math.min.apply(null, coords.map(function(c) { return c[0]; }));
+          var latMax = Math.max.apply(null, coords.map(function(c) { return c[0]; }));
+          var lngMin = Math.min.apply(null, coords.map(function(c) { return c[1]; }));
+          var lngMax = Math.max.apply(null, coords.map(function(c) { return c[1]; }));
+          var latRange = latMax - latMin;
+          var lngRange = lngMax - lngMin;
+          var majorIsLat = latRange >= lngRange;
+
+          capteurs.forEach(function(c, idx) {
+            var pos;
+            if (capteurs.length === 1) {
+              pos = [centLat, centLng];
+            } else {
+              var t = 0.2 + (0.6 * idx) / (capteurs.length - 1);
+              if (majorIsLat) {
+                pos = [latMin + t * latRange, centLng];
+              } else {
+                pos = [centLat, lngMin + t * lngRange];
+              }
+            }
+            L.circle(pos, { radius: 50, color: '#c96c2d', fillColor: '#c96c2d', fillOpacity: 0.08, weight: 1.5, dashArray: '5 4', interactive: false })
+              .addTo(savedLayer);
+            L.circle(pos, { radius: 8, color: '#c96c2d', fillColor: '#c96c2d', fillOpacity: 1, weight: 2, interactive: false })
+              .addTo(savedLayer);
+          });
+        }
       });
 
       var drawMode = false, points = [], polygon = null, pointMarkers = [], userMarker = null;

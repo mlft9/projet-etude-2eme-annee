@@ -8,7 +8,7 @@ class DiagnosticsRepository {
   findAllByUser(userId) {
     return this.Diagnostic.findAll({
       where: { user_id: userId },
-      include: [{ model: Parcelle, as: 'parcelle', attributes: ['name'] }],
+      include: [{ model: Parcelle, as: 'parcelle', attributes: ['name', 'culture'] }],
       order: [['created_at', 'DESC']],
     });
   }

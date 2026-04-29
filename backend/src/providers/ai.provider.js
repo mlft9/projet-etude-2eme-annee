@@ -9,6 +9,22 @@ const PROMPT_IMAGE = `Tu es un expert agronome. Analyse cette photo de plante/fe
 }
 score_confiance est un entier 0-100 représentant ta certitude basée uniquement sur l'image.`;
 
+function buildPlantPrompt(plantName, question, contexte) {
+  return `Tu es un expert agronome. Réponds en français simple pour un agriculteur.
+Plante: ${plantName}
+Question: ${question}
+Contexte saisi par l'utilisateur: ${contexte || 'Aucun contexte supplémentaire'}
+
+Donne une réponse structurée au format JSON strict:
+{
+  "resume": "résumé court et clair",
+  "conseils": ["conseil 1", "conseil 2", "conseil 3"],
+  "vigilance": ["point de vigilance 1", "point de vigilance 2"],
+  "prochaines_actions": ["action concrète 1", "action concrète 2"]
+}
+Ne fournis aucun texte hors JSON.`;
+}
+
 function buildSensorPrompt(sensors) {
   return `Tu es un expert agronome. Voici les données capteurs terrain de la parcelle :
 - Température sol : ${sensors.temperature}°C
@@ -50,6 +66,26 @@ class AiProvider {
       niveau_risque: sensors.humidite < 40 ? 'Élevé' : 'Modéré',
       conseil: `Irrigation recommandée. Humidité capteur à ${sensors.humidite}% — seuil critique à 40%.`,
       score_confiance: 88,
+    };
+    return { ...mock, raw: JSON.stringify(mock) };
+  }
+
+  _buildMockPlantAnswer(plantName, question) {
+    const mock = {
+      resume: `Réponse experte sur ${plantName} pour la question: ${question}`,
+      conseils: [
+        'Inspecter la parcelle 2 fois par semaine.',
+        'Maintenir une irrigation régulière sans excès.',
+        'Retirer rapidement les parties atteintes.',
+      ],
+      vigilance: [
+        'Surveiller humidité et stress thermique.',
+        'Contrôler la pression des ravageurs après pluie.',
+      ],
+      prochaines_actions: [
+        'Faire un tour de parcelle demain matin.',
+        'Noter les symptômes observés pour comparer dans 48h.',
+      ],
     };
     return { ...mock, raw: JSON.stringify(mock) };
   }
@@ -104,6 +140,27 @@ class AiProvider {
     } catch (err) {
       console.error('[AiProvider] sensor analysis error, fallback mock:', err.message);
       return this._buildMockRefinedResponse(sensors);
+    }
+  }
+
+  async askPlantQuestion({ plantName, question, context }) {
+    if (!this.hasAzure && !this.hasOpenAI) return this._buildMockPlantAnswer(plantName, question);
+
+    try {
+      const client = this._buildClient();
+      const model = this.hasAzure ? (process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o') : 'gpt-4o';
+      const response = await client.chat.completions.create({
+        model,
+        messages: [{ role: 'user', content: buildPlantPrompt(plantName, question, context) }],
+        max_tokens: 450,
+      });
+
+      const raw = response.choices[0].message.content;
+      const parsed = JSON.parse(raw.replace(/```json\n?|\n?```/g, '').trim());
+      return { ...parsed, raw };
+    } catch (err) {
+      console.error('[AiProvider] plant question error, fallback mock:', err.message);
+      return this._buildMockPlantAnswer(plantName, question);
     }
   }
 }

@@ -14,4 +14,10 @@ function validateAffiner({ temperature, humidite, pluviometrie } = {}) {
   return null;
 }
 
-module.exports = { validateCreate, validateAffiner };
+function validatePlantAssistant({ plant_name, question } = {}) {
+  if (!plant_name) return 'plant_name requis';
+  if (!question) return 'question requise';
+  return null;
+}
+
+module.exports = { validateCreate, validateAffiner, validatePlantAssistant };

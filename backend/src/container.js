@@ -3,7 +3,7 @@
  * Chaque couche reçoit ses dépendances par constructeur — aucun module
  * n'importe directement la base de données ou les services voisins.
  */
-const { User, Parcelle, Diagnostic, CapteurReleve } = require('./models');
+const { User, Parcelle, Diagnostic, CapteurReleve, Capteur } = require('./models');
 
 const AiProvider = require('./providers/ai.provider');
 
@@ -19,6 +19,10 @@ const DiagnosticsRepository = require('./modules/diagnostics/diagnostics.reposit
 const DiagnosticsService = require('./modules/diagnostics/diagnostics.service');
 const DiagnosticsController = require('./modules/diagnostics/diagnostics.controller');
 
+const CapteursRepository = require('./modules/capteurs/capteurs.repository');
+const CapteursService = require('./modules/capteurs/capteurs.service');
+const CapteursController = require('./modules/capteurs/capteurs.controller');
+
 // --- instanciation ---
 const aiProvider = new AiProvider();
 
@@ -26,7 +30,7 @@ const authRepository = new AuthRepository(User);
 const authService = new AuthService(authRepository);
 const authController = new AuthController(authService);
 
-const parcellesRepository = new ParcellesRepository(Parcelle, CapteurReleve);
+const parcellesRepository = new ParcellesRepository(Parcelle, CapteurReleve, Capteur);
 const parcellesService = new ParcellesService(parcellesRepository);
 const parcellesController = new ParcellesController(parcellesService);
 
@@ -34,4 +38,8 @@ const diagnosticsRepository = new DiagnosticsRepository(Diagnostic);
 const diagnosticsService = new DiagnosticsService(diagnosticsRepository, aiProvider);
 const diagnosticsController = new DiagnosticsController(diagnosticsService);
 
-module.exports = { authController, parcellesController, diagnosticsController };
+const capteursRepository = new CapteursRepository(Capteur, CapteurReleve);
+const capteursService = new CapteursService(capteursRepository);
+const capteursController = new CapteursController(capteursService);
+
+module.exports = { authController, parcellesController, diagnosticsController, capteursController };

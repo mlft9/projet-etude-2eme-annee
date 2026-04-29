@@ -26,11 +26,40 @@ class ParcellesController {
     }
   }
 
+  async delete(req, res) {
+    try {
+      await this.parcellesService.delete(req.params.id, req.user.id);
+      res.status(204).send();
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message });
+    }
+  }
+
+  async update(req, res) {
+    const { name, culture } = req.body;
+    if (!name || !String(name).trim()) return res.status(400).json({ error: 'Le nom est requis' });
+    try {
+      const parcelle = await this.parcellesService.update(req.params.id, req.user.id, { name: String(name).trim(), culture });
+      res.json(parcelle);
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message });
+    }
+  }
+
   async getLatestCapteurs(req, res) {
     try {
       const releve = await this.parcellesService.getLatestCapteurs(req.params.id, req.user.id);
       if (!releve) return res.status(404).json({ error: 'Aucun relevé capteur disponible' });
       res.json(releve);
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message });
+    }
+  }
+
+  async getCapteurs(req, res) {
+    try {
+      const capteurs = await this.parcellesService.getCapteurs(req.params.id, req.user.id);
+      res.json(capteurs);
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message });
     }

@@ -27,7 +27,7 @@ async function insertReadings() {
   const queries = rows.map((parcelle) => {
     const reading = buildReading();
     return pool.query(
-      'INSERT INTO capteurs_releves (parcelle_id, temperature, humidite, pluviometrie) VALUES ($1, $2, $3, $4)',
+      'INSERT INTO capteurs_releves (parcelle_id, temperature, humidite, pluviometrie, timestamp) VALUES ($1, $2, $3, $4, NOW())',
       [parcelle.id, reading.temperature, reading.humidite, reading.pluviometrie]
     );
   });

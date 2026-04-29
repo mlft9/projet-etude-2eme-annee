@@ -25,12 +25,12 @@ export default function DiagnosticCard({ diagnostic }) {
 }
 
 const styles = StyleSheet.create({
-  container: { borderTopWidth: 1, borderTopColor: '#eee7d8', paddingTop: 14, gap: 10 },
+  container: { borderTopWidth: 1, borderTopColor: '#eee7d8', paddingTop: 18, gap: 10 },
   header: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   headerText: { flex: 1, gap: 4 },
-  title: { color: '#1d2a1e', fontSize: 16, fontWeight: '700' },
-  meta: { color: '#677267', fontSize: 12 },
-  advice: { color: '#374238', lineHeight: 21 },
-  confidence: { color: '#6c776d', fontSize: 12, fontWeight: '600' },
+  title: { color: '#1d2a1e', fontSize: 17, fontWeight: '700' },
+  meta: { color: '#677267', fontSize: 14 },
+  advice: { color: '#374238', lineHeight: 23, fontSize: 15 },
+  confidence: { color: '#6c776d', fontSize: 14, fontWeight: '600' },
   confidenceLow: { color: '#c96c2d' },
 });

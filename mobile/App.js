@@ -13,6 +13,7 @@ import RefinementScreen from './src/features/diagnostics/screens/RefinementScree
 import MapScreen from './src/features/parcelles/screens/MapScreen';
 import AccountScreen from './src/features/account/screens/AccountScreen';
 
+import * as ImagePicker from 'expo-image-picker';
 import { fetchParcelles, fetchDiagnostics, createDiagnostic, refineDiagnostic, fetchLatestCapteurs } from './src/shared/services/api';
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
   const [diagnostics, setDiagnostics] = useState([]);
   const [selectedParcelleId, setSelectedParcelleId] = useState(null);
   const [pendingRefinement, setPendingRefinement] = useState(null);
+  const [fabImage, setFabImage] = useState(null);
 
   useEffect(() => {
     if (token) refreshData();
@@ -108,6 +110,20 @@ export default function App() {
     }
   }
 
+  async function handleFabPress() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Accès refusé', 'Autorise la caméra pour photographier la plante.', [
+        { text: 'Choisir dans la galerie', onPress: () => { setFabImage(null); setScreen('new'); } },
+        { text: 'Annuler', style: 'cancel' },
+      ]);
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.7, base64: true });
+    setFabImage(!result.canceled && result.assets?.[0] ? result.assets[0] : null);
+    setScreen('new');
+  }
+
   function handleSkipRefinement() {
     setPendingRefinement(null);
     setScreen('dashboard');
@@ -142,7 +158,7 @@ export default function App() {
       case 'diagnostics':
         return <DiagnosticsScreen diagnostics={diagnostics} parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} refreshing={refreshing} onRefresh={refreshData} />;
       case 'new':
-        return <NewDiagnosticScreen parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} onSubmit={handleCreateDiagnostic} submitting={submitting} />;
+        return <NewDiagnosticScreen parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} onSubmit={handleCreateDiagnostic} submitting={submitting} initialImage={fabImage} />;
       case 'refine':
         return <RefinementScreen diagnostic={pendingRefinement?.diagnostic} initialCapteurs={pendingRefinement?.initialCapteurs} submitting={submitting} onRefine={handleRefineDiagnostic} onSkip={handleSkipRefinement} />;
       case 'account':
@@ -176,7 +192,7 @@ export default function App() {
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 4 }]}>
         {tabs.map((tab) =>
           tab.icon === null ? (
-            <Pressable key={tab.key} style={styles.fabButton} onPress={() => setScreen('new')}>
+            <Pressable key={tab.key} style={styles.fabButton} onPress={handleFabPress}>
               <Ionicons name="add" size={32} color="#fffdf8" />
             </Pressable>
           ) : (

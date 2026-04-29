@@ -29,10 +29,10 @@ export default function AccountScreen({ user, onLogout }) {
 const styles = StyleSheet.create({
   content: { padding: 20, gap: 16, paddingBottom: 110 },
   card: { backgroundColor: '#fffdf8', borderRadius: 22, padding: 18, gap: 14, borderWidth: 1, borderColor: '#e0d8c7' },
-  sectionTitle: { color: '#1d2a1e', fontSize: 18, fontWeight: '800' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#eee7d8', paddingTop: 12 },
-  label: { color: '#677267', fontWeight: '600' },
-  value: { color: '#1d2a1e', fontWeight: '700', maxWidth: '65%', textAlign: 'right' },
-  dangerButton: { backgroundColor: '#9f2f1f', borderRadius: 16, paddingVertical: 15, alignItems: 'center' },
-  dangerButtonText: { color: '#fffaf5', fontWeight: '800', fontSize: 15 },
+  sectionTitle: { color: '#1d2a1e', fontSize: 20, fontWeight: '800' },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#eee7d8', paddingTop: 16 },
+  label: { color: '#677267', fontWeight: '600', fontSize: 15 },
+  value: { color: '#1d2a1e', fontWeight: '700', fontSize: 15, maxWidth: '65%', textAlign: 'right' },
+  dangerButton: { backgroundColor: '#9f2f1f', borderRadius: 16, paddingVertical: 22, alignItems: 'center' },
+  dangerButtonText: { color: '#fffaf5', fontWeight: '800', fontSize: 17 },
 });

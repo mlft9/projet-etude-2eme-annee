@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import * as Location from 'expo-location';
 import { createParcelle } from '../../../shared/services/api';
 import { normalizePolygon, computeSurfaceHa } from '../../../shared/utils/geo';
@@ -99,6 +99,7 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
   const [formOpen, setFormOpen] = useState(false);
   const [formName, setFormName] = useState('');
   const [formCulture, setFormCulture] = useState('');
+  const { height: screenHeight } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const initialHtml = useMemo(() => buildLeafletHtml({ center: DEFAULT_CENTER, savedPolygons }), [savedPolygons]);
   const webviewRef = useRef(null);
@@ -175,7 +176,7 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
         </Pressable>
       </View>
 
-      <View style={styles.mapCard}>
+      <View style={[styles.mapCard, { height: Math.round(screenHeight * 0.55) }]}>
         {isWeb ? (
           <iframe ref={iframeRef} title="map" srcDoc={initialHtml} style={{ width: '100%', height: '100%', border: 'none' }}
             onLoad={() => { const win = iframeRef.current?.contentWindow; if (win) window.addEventListener('message', (e) => { if (e.source === win && typeof e.data === 'string') handleMapMessage(e.data); }); }} />
@@ -243,7 +244,7 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { color: '#1d2a1e', fontSize: 18, fontWeight: '800' },
   action: { color: '#21543d', fontWeight: '700' },
-  mapCard: { borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: '#e0d8c7', backgroundColor: '#fffdf8', height: 360 },
+  mapCard: { borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: '#e0d8c7', backgroundColor: '#fffdf8' },
   map: { flex: 1, backgroundColor: '#fffdf8' },
   helper: { color: '#6c776d', fontSize: 13 },
   empty: { color: '#6c776d', fontSize: 14, textAlign: 'center', marginTop: 40 },

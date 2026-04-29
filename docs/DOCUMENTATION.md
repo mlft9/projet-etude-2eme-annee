@@ -31,7 +31,7 @@ Le diagnostic peut etre affine en integrant les donnees de capteurs terrain (tem
 
 L'application propose egalement une bibliotheque de plantes cultivees avec fiche maladies, nuisibles et besoins, ainsi qu'un assistant IA permettant de poser des questions agronomiques libres sur une plante.
 
-![Capture ecran - ecran d'accueil de l'application](../schema/applicative.png)
+![Capture ecran - ecran d'accueil de l'application](../assets/accueil.png)
 
 ---
 
@@ -63,11 +63,12 @@ L'application propose egalement une bibliotheque de plantes cultivees avec fiche
 
 ### Vue d'ensemble de l'architecture
 
-![Schema d'architecture applicative](../schema/applicative.png)
+![Schema d'architecture applicative](./technique/schema/applicative.png)
 
-![Schema d'architecture reseau](../schema_archi_reseau.png)
+![Schema d'infrastructure](./technique/schema/infra.png)
 
-![Schema d'infrastructure](../schema/infra.png)
+![Schema applicatif](./technique/schema/applicative.png)
+
 
 ### Flux principal
 
@@ -230,13 +231,11 @@ L'application est developpee avec React Native et Expo. Elle est organisee par m
 
 - **AuthScreen** - Formulaire de connexion / inscription. Stocke le token JWT en local.
 
-![Capture - ecran de connexion]()
+![Capture - ecran de connexion](../assets/login.png)
 
 #### Tableau de bord
 
 - **DashboardScreen** - Vue principale apres connexion. Affiche trois statistiques (nombre de parcelles, nombre de diagnostics, nombre de diagnostics a risque eleve), la liste des parcelles avec coordonnees GPS, et les quatre derniers diagnostics.
-
-![Capture - tableau de bord]()
 
 #### Diagnostics
 
@@ -246,9 +245,7 @@ L'application est developpee avec React Native et Expo. Elle est organisee par m
 - **DiagnosticDetailScreen** - Detail complet d'un diagnostic existant.
 - **RefinementScreen** - Affinage du diagnostic avec les donnees des capteurs terrain associes a la parcelle.
 
-![Capture - ecran de diagnostic]()
-
-![Capture - resultat de diagnostic]()
+![Capture - ecran de diagnostic](../assets/diag.png)
 
 #### Parcelles
 
@@ -259,7 +256,7 @@ L'application est developpee avec React Native et Expo. Elle est organisee par m
 - **PlantLibraryScreen** - Catalogue des cultures disponibles (maladies, nuisibles, varietes). Si une culture est liee a une parcelle selectionnee, la fiche correspondante est mise en avant.
 - **PlantDetailsScreen** - Fiche detaillee d'une plante avec la possibilite de poser une question libre a l'assistant IA agronome.
 
-![Capture - bibliotheque des plantes]()
+![Capture - bibliotheque des plantes](../assets/plante.png)
 
 #### Compte
 
@@ -313,7 +310,7 @@ L'utilisateur peut poser une question libre sur une plante. La reponse est struc
 - Points de vigilance
 - Prochaines actions
 
-![Schema du flux IA](../schema/diagramme%20sequence.png)
+![Schema du flux IA](./technique/schema/diagramme%20sequence.png)
 
 ### Modele utilise
 
@@ -327,9 +324,9 @@ L'utilisateur peut poser une question libre sur une plante. La reponse est struc
 
 ### Modele de donnees
 
-![Modele de donnees](../schema/modele%20de%20donnees.png)
+![Modele de donnees](./technique/schema/modele%20de%20données.png)
 
-![Schema logique](../schema/logique.png)
+![Schema logique](./technique/schema/logique.png)
 
 ### Tables
 
@@ -409,7 +406,7 @@ Ce composant peut etre remplace par une integration reelle (MQTT, API capteurs p
 
 ### Diagramme d'activite
 
-![Diagramme d'activite](../schema/diagramme%20activie%CC%81.png)
+![Diagramme d'activite](./technique/schema/diagramme%20activié.png)
 
 ---
 
@@ -417,7 +414,7 @@ Ce composant peut etre remplace par une integration reelle (MQTT, API capteurs p
 
 ### Architecture de deploiement
 
-![Schema de deploiement](../schema/de%CC%81ploiement.png)
+![Schema de deploiement](./technique/schema/déploiement.png)
 
 ### Services Azure
 
@@ -490,5 +487,3 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o
 - ROI : x11,5
 
 Note : les maladies fongiques representent 15 a 20 % de pertes de recoltes en France. Le diagnostic precoce permet un traitement cible et reduit significativement ces pertes.
-
-![Graphique break-even et scenarios de croissance]()

@@ -21,10 +21,13 @@ async function start() {
   await sequelize.authenticate();
   console.log('Connexion DB établie');
 
-  if (process.env.NODE_ENV !== 'production') {
-    await sequelize.sync({ alter: true });
-    console.log('Schéma DB synchronisé');
-  }
+  await sequelize.query(`
+    ALTER TABLE diagnostics ADD COLUMN IF NOT EXISTS score_confiance INTEGER;
+    ALTER TABLE diagnostics DROP CONSTRAINT IF EXISTS diagnostics_parcelle_id_fkey;
+    ALTER TABLE diagnostics ADD CONSTRAINT diagnostics_parcelle_id_fkey
+      FOREIGN KEY (parcelle_id) REFERENCES parcelles(id) ON DELETE SET NULL;
+  `);
+  console.log('Schéma DB synchronisé');
 
   await seed();
 

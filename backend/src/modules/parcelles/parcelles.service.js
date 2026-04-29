@@ -15,6 +15,17 @@ class ParcellesService {
     return this.parcellesRepository.latestCapteurs(parcelleId);
   }
 
+  async delete(parcelleId, userId) {
+    const deleted = await this.parcellesRepository.deleteByIdAndUser(parcelleId, userId);
+    if (!deleted) throw Object.assign(new Error('Parcelle introuvable'), { status: 404 });
+  }
+
+  async update(parcelleId, userId, { name, culture }) {
+    const parcelle = await this.parcellesRepository.updateByIdAndUser(parcelleId, userId, { name, culture: culture || null });
+    if (!parcelle) throw Object.assign(new Error('Parcelle introuvable'), { status: 404 });
+    return parcelle;
+  }
+
   create(userId, { name, culture, geometry, surface_ha }) {
     const points = normalizePoints(geometry);
     if (!points) throw Object.assign(new Error('Coordonnées invalides'), { status: 400 });

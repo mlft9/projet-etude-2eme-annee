@@ -36,6 +36,21 @@ export function createParcelle(token, payload) {
   });
 }
 
+export function updateParcelle(token, id, payload) {
+  return request(`/parcelles/${id}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteParcelle(token, id) {
+  return request(`/parcelles/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export function fetchDiagnostics(token) {
   return request('/diagnostics', { headers: { Authorization: `Bearer ${token}` } });
 }

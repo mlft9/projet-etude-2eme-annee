@@ -25,13 +25,14 @@ ALTER TABLE parcelles ADD COLUMN IF NOT EXISTS geometry JSONB;
 CREATE TABLE IF NOT EXISTS diagnostics (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id),
-  parcelle_id INTEGER REFERENCES parcelles(id),
+  parcelle_id INTEGER REFERENCES parcelles(id) ON DELETE SET NULL,
   image_url TEXT,
   image_base64 TEXT,
   maladie_detectee VARCHAR(255),
   niveau_risque VARCHAR(50),
   conseil TEXT,
   ia_raw_response TEXT,
+  score_confiance INTEGER,
   created_at TIMESTAMP DEFAULT NOW()
 );
 

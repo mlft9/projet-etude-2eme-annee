@@ -145,9 +145,6 @@ JWT_SECRET=change_me_in_production
 AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
 AZURE_OPENAI_KEY=<cle_azure>
 AZURE_OPENAI_DEPLOYMENT=gpt-4o
-
-# IA - OpenAI direct (fallback)
-OPENAI_API_KEY=<cle_openai>
 ```
 
 ### Demarrage avec Docker Compose
@@ -271,8 +268,6 @@ L'application est developpee avec React Native et Expo. Elle est organisee par m
 Le fichier `backend/src/providers/ai.provider.js` centralise toutes les interactions avec l'IA. Il detecte automatiquement la configuration disponible au demarrage :
 
 1. **Azure OpenAI** (priorite) - utilise si `AZURE_OPENAI_KEY` et `AZURE_OPENAI_ENDPOINT` sont renseignes
-2. **OpenAI direct** (fallback) - utilise si seul `OPENAI_API_KEY` est present
-3. **Mode mock** - retourne des reponses fictives coherentes si aucune cle n'est configuree
 
 Ce mecanisme permet de developper et de demontrer l'application sans cle IA valide.
 

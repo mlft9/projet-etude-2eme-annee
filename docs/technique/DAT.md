@@ -50,8 +50,7 @@ Hébergée dans Docker en développement, migrée sur Azure Database for Postgre
 
 ### 3.4 IA — Azure OpenAI GPT-4o Vision
 
-Le service `aiProvider.js` envoie l'image en base64 au modèle multimodal GPT-4o. Le modèle retourne un JSON structuré (maladie, niveau de risque, conseil). Un fallback sur l'API OpenAI publique est prévu si le tenant Azure n'est pas disponible.
-
+Le service `aiProvider.js` envoie l'image en base64 au modèle multimodal GPT-4o. Le modèle retourne un JSON structuré (maladie, niveau de risque, conseil). 
 ---
 
 ## 4. Infrastructure et déploiement

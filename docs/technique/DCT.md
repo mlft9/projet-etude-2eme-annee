@@ -169,16 +169,6 @@ et réponds en JSON strict :
 
 Le backend parse la réponse JSON, strip les éventuels blocs markdown (` ```json `) et persiste le résultat. La réponse brute (`ia_raw_response`) est conservée pour débogage.
 
-### Stratégie de fallback IA
-
-```
-AZURE_OPENAI_KEY présente ?
-  ├── Oui → Azure OpenAI (tenant école)
-  └── Non → OpenAI API publique (OPENAI_API_KEY)
-```
-
-Le même SDK OpenAI v4 est utilisé dans les deux cas, seul le `baseURL` change.
-
 ---
 
 ## 4. Authentification

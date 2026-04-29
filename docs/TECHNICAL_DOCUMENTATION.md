@@ -247,12 +247,6 @@ L’IA doit répondre avec trois éléments:
 - `niveau_risque`
 - `conseil`
 
-### 10.3 Fallback
-
-Si l’IA ne peut pas être appelée correctement, le projet revient sur une réponse de secours simple pour garder la démo exploitable.
-
-Cela évite de bloquer complètement l’expérience utilisateur en cas de problème de configuration.
-
 ---
 
 ## 11. Installation et lancement en local
@@ -378,7 +372,6 @@ Si le mobile ne trouve pas le backend, vérifier que:
 - **Expo**: outil qui simplifie le développement d’applications React Native.
 - **PostgreSQL**: système de base de données relationnelle.
 - **IA**: intelligence artificielle utilisée pour analyser une image.
-- **Fallback**: solution de secours quand le service principal ne peut pas être utilisé.
 - **Docker**: outil de conteneurisation qui facilite le lancement des services.
 
 ---
@@ -519,7 +512,6 @@ Ces améliorations ne bloquent pas le fonctionnement du projet, mais elles rende
 - **Expo**: outil qui simplifie le développement React Native.
 - **PostgreSQL**: base de données relationnelle.
 - **IA**: intelligence artificielle qui analyse l’image.
-- **Fallback**: solution de secours utilisée quand la solution principale échoue.
 
 ---
 

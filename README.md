@@ -13,7 +13,7 @@ Application mobile de diagnostic agricole par IA : photo d'une plante → analys
 | Backend | Node.js + Express |
 | Base de données | PostgreSQL 16 |
 | Infra | Docker + Azure Container Apps |
-| IA | Azure OpenAI GPT-4o Vision (fallback OpenAI direct, fallback mock) |
+| IA | Azure OpenAI GPT-4o Vision |
 
 ---
 
@@ -78,7 +78,6 @@ Copier `.env.example` en `.env` et renseigner :
 | `AZURE_OPENAI_ENDPOINT` | Endpoint Azure OpenAI |
 | `AZURE_OPENAI_KEY` | Clé Azure OpenAI |
 | `AZURE_OPENAI_DEPLOYMENT` | Nom du déploiement (ex: `gpt-4o`) |
-| `OPENAI_API_KEY` | Clé OpenAI directe (fallback) |
 | `JWT_SECRET` | Secret JWT (changer en prod) |
 
 Si aucune clé IA n'est configurée, l'app bascule automatiquement sur une réponse mock.

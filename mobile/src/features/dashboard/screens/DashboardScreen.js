@@ -4,6 +4,23 @@ import DiagnosticCard from '../../diagnostics/components/DiagnosticCard';
 
 export default function DashboardScreen({ user, parcelles, diagnostics, refreshing, onRefresh, onViewAllDiagnostics }) {
   const elevatedCount = diagnostics.filter((d) => d.niveau_risque === 'Élevé').length;
+  const parcellesById = new Map(parcelles.map((p) => [p.id, p]));
+  const recentParcelles = [];
+
+  diagnostics.forEach((diagnostic) => {
+    if (recentParcelles.length >= 4 || !diagnostic.parcelle_id) return;
+    const alreadyAdded = recentParcelles.some((parcelle) => parcelle.id === diagnostic.parcelle_id);
+    if (alreadyAdded) return;
+
+    const parcelle = parcellesById.get(diagnostic.parcelle_id);
+    recentParcelles.push({
+      id: diagnostic.parcelle_id,
+      name: diagnostic.parcelle_name || parcelle?.name || 'Parcelle inconnue',
+      culture: diagnostic.culture || parcelle?.culture || 'Culture non renseignee',
+      latitude: diagnostic.latitude ?? parcelle?.latitude ?? null,
+      longitude: diagnostic.longitude ?? parcelle?.longitude ?? null,
+    });
+  });
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -15,22 +32,25 @@ export default function DashboardScreen({ user, parcelles, diagnostics, refreshi
 
       <View style={styles.card}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Mes parcelles</Text>
+          <Text style={styles.sectionTitle}>4 dernieres parcelles consultees</Text>
           <Pressable onPress={onRefresh} disabled={refreshing}>
             <Text style={styles.inlineAction}>{refreshing ? 'Actualisation...' : 'Actualiser'}</Text>
           </Pressable>
         </View>
-        {parcelles.map((parcelle) => (
+        {recentParcelles.map((parcelle) => (
           <View key={parcelle.id} style={styles.parcelleRow}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.parcelleTitle}>{parcelle.name}</Text>
-              <Text style={styles.parcelleMeta}>{parcelle.culture} | {parcelle.surface_ha} ha</Text>
+              <Text style={styles.parcelleMeta}>{parcelle.culture}</Text>
             </View>
             <Text style={styles.parcelleCoords}>
-              {Number(parcelle.latitude).toFixed(2)}, {Number(parcelle.longitude).toFixed(2)}
+              {parcelle.latitude != null && parcelle.longitude != null
+                ? `${Number(parcelle.latitude).toFixed(5)}, ${Number(parcelle.longitude).toFixed(5)}`
+                : '—'}
             </Text>
           </View>
         ))}
+        {recentParcelles.length === 0 && <Text style={styles.parcelleMeta}>Aucune parcelle consultee pour le moment.</Text>}
       </View>
 
       <View style={styles.card}>
@@ -40,7 +60,7 @@ export default function DashboardScreen({ user, parcelles, diagnostics, refreshi
             <Text style={styles.inlineAction}>Voir tout</Text>
           </Pressable>
         </View>
-        {diagnostics.slice(0, 3).map((d) => <DiagnosticCard key={d.id} diagnostic={d} />)}
+        {diagnostics.slice(0, 4).map((d) => <DiagnosticCard key={d.id} diagnostic={d} />)}
       </View>
     </ScrollView>
   );
@@ -56,5 +76,6 @@ const styles = StyleSheet.create({
   parcelleRow: { paddingVertical: 18, borderTopWidth: 1, borderTopColor: '#eee7d8', flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   parcelleTitle: { color: '#213123', fontSize: 17, fontWeight: '700' },
   parcelleMeta: { color: '#677267', marginTop: 4, fontSize: 14 },
+  parcelleMetaLink: { color: '#c96c2d', marginTop: 4, fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' },
   parcelleCoords: { color: '#7a847b', fontSize: 14, maxWidth: 110, textAlign: 'right' },
 });

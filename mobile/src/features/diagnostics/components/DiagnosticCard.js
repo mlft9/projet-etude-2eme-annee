@@ -1,16 +1,23 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import RiskBadge from './RiskBadge';
 import { formatDate } from '../../../shared/utils/date';
 
-export default function DiagnosticCard({ diagnostic }) {
+export default function DiagnosticCard({ diagnostic, onViewPlant }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerText}>
           <Text style={styles.title}>{diagnostic.maladie_detectee}</Text>
-          <Text style={styles.meta}>
-            {diagnostic.parcelle_name || 'Parcelle non rattachee'} | {formatDate(diagnostic.created_at)}
-          </Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.meta}>
+              {diagnostic.parcelle_name || 'Parcelle non rattachee'} | {formatDate(diagnostic.created_at)}
+            </Text>
+            {diagnostic.culture && onViewPlant && (
+              <Pressable onPress={() => onViewPlant(diagnostic.culture)}>
+                <Text style={styles.cultureLink}>({diagnostic.culture})</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
         <RiskBadge value={diagnostic.niveau_risque} />
       </View>
@@ -29,7 +36,9 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   headerText: { flex: 1, gap: 4 },
   title: { color: '#1d2a1e', fontSize: 17, fontWeight: '700' },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, alignItems: 'center' },
   meta: { color: '#677267', fontSize: 14 },
+  cultureLink: { color: '#c96c2d', fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' },
   advice: { color: '#374238', lineHeight: 23, fontSize: 15 },
   confidence: { color: '#6c776d', fontSize: 14, fontWeight: '600' },
   confidenceLow: { color: '#c96c2d' },

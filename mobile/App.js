@@ -12,6 +12,9 @@ import NewDiagnosticScreen from './src/features/diagnostics/screens/NewDiagnosti
 import RefinementScreen from './src/features/diagnostics/screens/RefinementScreen';
 import MapScreen from './src/features/parcelles/screens/MapScreen';
 import AccountScreen from './src/features/account/screens/AccountScreen';
+import PlantLibraryScreen from './src/features/plants/screens/PlantLibraryScreen';
+import PlantDetailsScreen from './src/features/plants/screens/PlantDetailsScreen';
+import DiagnosticDetailScreen from './src/features/diagnostics/screens/DiagnosticDetailScreen';
 
 import * as ImagePicker from 'expo-image-picker';
 import { fetchParcelles, fetchDiagnostics, createDiagnostic, refineDiagnostic, fetchLatestCapteurs } from './src/shared/services/api';
@@ -28,6 +31,9 @@ export default function App() {
   const [selectedParcelleId, setSelectedParcelleId] = useState(null);
   const [pendingRefinement, setPendingRefinement] = useState(null);
   const [fabImage, setFabImage] = useState(null);
+  const [selectedPlant, setSelectedPlant] = useState(null);
+  const [plantBackScreen, setPlantBackScreen] = useState('dashboard');
+  const [selectedDiagnostic, setSelectedDiagnostic] = useState(null);
 
   useEffect(() => {
     if (token) refreshData();
@@ -140,6 +146,18 @@ export default function App() {
     refreshData();
   }
 
+  function openPlantLibrary(plantName = null, fromScreen = 'dashboard') {
+    setSelectedPlant(plantName || null);
+    setPlantBackScreen(fromScreen);
+    setScreen('plant-library');
+  }
+
+  function openPlantDetails(plantName, fromScreen = 'plant-library') {
+    setSelectedPlant(plantName);
+    setPlantBackScreen(fromScreen);
+    setScreen('plant-details');
+  }
+
   if (booting) {
     return (
       <SafeAreaView style={styles.loadingScreen}>
@@ -166,11 +184,17 @@ export default function App() {
       case 'map':
         return <ScrollView contentContainerStyle={styles.mapWrapper}><MapScreen parcelles={parcelles} refreshing={refreshing} onRefresh={refreshData} token={token} /></ScrollView>;
       case 'diagnostics':
-        return <DiagnosticsScreen diagnostics={diagnostics} parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} refreshing={refreshing} onRefresh={refreshData} />;
+        return <DiagnosticsScreen diagnostics={diagnostics} parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} refreshing={refreshing} onRefresh={refreshData} onOpenPlantLibrary={() => openPlantLibrary(null, 'diagnostics')} onViewPlant={(plant) => openPlantLibrary(plant, 'diagnostics')} onOpenDiagnostic={(d) => { setSelectedDiagnostic(d); setScreen('diagnostic-detail'); }} />;
       case 'new':
         return <NewDiagnosticScreen parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} onSubmit={handleCreateDiagnostic} submitting={submitting} initialImage={fabImage} />;
       case 'refine':
         return <RefinementScreen diagnostic={pendingRefinement?.diagnostic} initialCapteurs={pendingRefinement?.initialCapteurs} submitting={submitting} onRefine={handleRefineDiagnostic} onSkip={handleSkipRefinement} />;
+      case 'plant-library':
+        return <PlantLibraryScreen selectedPlant={selectedPlant} onBack={() => setScreen(plantBackScreen)} onOpenCatalog={() => setSelectedPlant(null)} onOpenPlantDetails={(plant) => openPlantDetails(plant, 'plant-library')} />;
+      case 'plant-details':
+        return <PlantDetailsScreen plant={selectedPlant} token={token} onBack={() => setScreen(plantBackScreen)} />;
+      case 'diagnostic-detail':
+        return <DiagnosticDetailScreen diagnostic={selectedDiagnostic} token={token} onBack={() => setScreen('diagnostics')} />;
       case 'account':
         return <AccountScreen user={user} onLogout={clearSession} />;
       default:

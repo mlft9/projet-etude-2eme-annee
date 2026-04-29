@@ -3,7 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { API_BASE_URL } from '../../../config';
 
-export default function NewDiagnosticScreen({ parcelles, selectedParcelleId, onSelectParcelle, onSubmit, submitting, initialImage }) {
+export default function NewDiagnosticScreen({ parcelles, selectedParcelleId, onSelectParcelle, onSubmit, submitting, initialImage, onViewPlant }) {
   const [selectedImage, setSelectedImage] = useState(initialImage || null);
 
   useEffect(() => {
@@ -49,6 +49,17 @@ export default function NewDiagnosticScreen({ parcelles, selectedParcelleId, onS
             return (
               <Pressable key={parcelle.id} style={[styles.pill, active ? styles.pillActive : null]} onPress={() => onSelectParcelle(parcelle.id)}>
                 <Text style={[styles.pillText, active ? styles.pillTextActive : null]}>{parcelle.name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                  <Text style={[styles.pillSubtext, active ? styles.pillSubtextActive : null]}>{parcelle.surface_ha}ha</Text>
+                  {onViewPlant && (
+                    <>
+                      <Text style={[styles.pillSubtext, active ? styles.pillSubtextActive : null]}>•</Text>
+                      <Pressable onPress={() => onViewPlant(parcelle.culture)}>
+                        <Text style={[styles.pillSubtext, styles.cultureSubtext]}>{parcelle.culture}</Text>
+                      </Pressable>
+                    </>
+                  )}
+                </View>
               </Pressable>
             );
           })}
@@ -105,6 +116,9 @@ const styles = StyleSheet.create({
   pillActive: { backgroundColor: '#21543d' },
   pillText: { color: '#506052', fontWeight: '700', fontSize: 15 },
   pillTextActive: { color: '#fffdf8' },
+  pillSubtext: { color: '#506052', fontWeight: '500', fontSize: 12 },
+  pillSubtextActive: { color: '#fffdf8' },
+  cultureSubtext: { color: '#c96c2d', fontWeight: '700', textDecorationLine: 'underline' },
   imageSourceRow: { flexDirection: 'row', gap: 10 },
   imageBtn: { flex: 1, alignItems: 'center' },
   primaryButton: { backgroundColor: '#c96c2d', borderRadius: 16, paddingVertical: 22, alignItems: 'center' },

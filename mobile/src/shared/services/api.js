@@ -61,3 +61,19 @@ export function fetchLatestCapteurs(token, parcelleId) {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+export function askPlantAssistant(token, payload) {
+  return request('/diagnostics/plantes/assistant', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function alertFarmers(token, diagnosticId, payload) {
+  return request(`/diagnostics/${diagnosticId}/alert`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}

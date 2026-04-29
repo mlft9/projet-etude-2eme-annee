@@ -19,6 +19,19 @@ class ParcellesRepository {
     return this.Parcelle.create(data);
   }
 
+  async deleteByIdAndUser(id, userId) {
+    const parcelle = await this.findByIdAndUser(id, userId);
+    if (!parcelle) return false;
+    await parcelle.destroy();
+    return true;
+  }
+
+  async updateByIdAndUser(id, userId, fields) {
+    const parcelle = await this.findByIdAndUser(id, userId);
+    if (!parcelle) return null;
+    return parcelle.update(fields);
+  }
+
   latestCapteurs(parcelleId) {
     return this.CapteurReleve.findOne({
       where: { parcelle_id: parcelleId },

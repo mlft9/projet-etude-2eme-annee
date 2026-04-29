@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import * as Location from 'expo-location';
-import { createParcelle } from '../../../shared/services/api';
+import { createParcelle, updateParcelle, deleteParcelle } from '../../../shared/services/api';
 import { normalizePolygon, computeSurfaceHa } from '../../../shared/utils/geo';
 import CultureBadge from '../components/CultureBadge';
 
@@ -96,9 +96,13 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
   const [drawMode, setDrawMode] = useState(false);
   const [points, setPoints] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [formName, setFormName] = useState('');
   const [formCulture, setFormCulture] = useState('');
+  const [editingParcelle, setEditingParcelle] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editCulture, setEditCulture] = useState('');
   const { height: screenHeight } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const initialHtml = useMemo(() => buildLeafletHtml({ center: DEFAULT_CENTER, savedPolygons }), [savedPolygons]);
@@ -167,7 +171,53 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
     }
   }
 
+  function openEdit(parcelle) {
+    setEditingParcelle(parcelle);
+    setEditName(parcelle.name);
+    setEditCulture(parcelle.culture || '');
+  }
+
+  async function handleEditSave() {
+    const name = editName.trim();
+    if (!name) { Alert.alert('Nom requis', 'Donne un nom à la parcelle.'); return; }
+    setSaving(true);
+    try {
+      await updateParcelle(token, editingParcelle.id, { name, culture: editCulture.trim() || null });
+      setEditingParcelle(null);
+      if (onRefresh) await onRefresh();
+    } catch (error) {
+      Alert.alert('Modification impossible', error.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleDelete(parcelle) {
+    Alert.alert(
+      'Supprimer la parcelle',
+      `Supprimer "${parcelle.name}" ? Cette action est irréversible.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer', style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteParcelle(token, parcelle.id);
+              if (onRefresh) await onRefresh();
+            } catch (error) {
+              Alert.alert('Suppression impossible', error.message);
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  }
+
   return (
+    <View style={styles.root}>
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Parcelles</Text>
@@ -202,20 +252,55 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
         <Text style={styles.helper}>Appuie sur la carte pour ajouter un point. Appuie sur un point pour le supprimer.</Text>
       </View>
 
-      {formOpen && (
-        <View style={styles.formPanel}>
-          <Text style={styles.formTitle}>Nouvelle parcelle</Text>
-          <Text style={styles.formLabel}>Nom</Text>
-          <TextInput style={styles.formInput} value={formName} onChangeText={setFormName} placeholder="Ex: Parcelle Nord" placeholderTextColor="#9aa49a" />
-          <Text style={styles.formLabel}>Culture (optionnel)</Text>
-          <TextInput style={styles.formInput} value={formCulture} onChangeText={setFormCulture} placeholder="Ex: Ble tendre" placeholderTextColor="#9aa49a" />
-          <Text style={styles.formHelper}>Surface estimee: {computeSurfaceHa(points).toFixed(2)} ha</Text>
-          <View style={styles.formActions}>
-            <Pressable style={[styles.formAction, styles.formActionGhost]} onPress={() => setFormOpen(false)} disabled={saving}><Text style={styles.formActionGhostText}>Annuler</Text></Pressable>
-            <Pressable style={[styles.formAction, styles.formActionPrimary, saving ? styles.formActionDisabled : null]} onPress={handleSave} disabled={saving}><Text style={styles.formActionPrimaryText}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Text></Pressable>
+      <Modal
+        visible={formOpen || !!editingParcelle}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setFormOpen(false); setEditingParcelle(null); }}
+      >
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => { if (!saving) { setFormOpen(false); setEditingParcelle(null); } }} />
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{editingParcelle ? 'Modifier la parcelle' : 'Nouvelle parcelle'}</Text>
+
+            <View style={styles.modalField}>
+              <Text style={styles.formLabel}>Nom</Text>
+              <TextInput
+                style={styles.formInput}
+                value={editingParcelle ? editName : formName}
+                onChangeText={editingParcelle ? setEditName : setFormName}
+                placeholder={editingParcelle ? 'Nom de la parcelle' : 'Ex: Parcelle Nord'}
+                placeholderTextColor="#9aa49a"
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.modalField}>
+              <Text style={styles.formLabel}>Culture (optionnel)</Text>
+              <TextInput
+                style={styles.formInput}
+                value={editingParcelle ? editCulture : formCulture}
+                onChangeText={editingParcelle ? setEditCulture : setFormCulture}
+                placeholder="Ex: Blé tendre"
+                placeholderTextColor="#9aa49a"
+              />
+            </View>
+
+            {formOpen && !editingParcelle && (
+              <Text style={styles.formHelper}>Surface estimée : {computeSurfaceHa(points).toFixed(2)} ha</Text>
+            )}
+
+            <View style={styles.formActions}>
+              <Pressable style={[styles.formAction, styles.formActionGhost]} onPress={() => { setFormOpen(false); setEditingParcelle(null); }} disabled={saving}>
+                <Text style={styles.formActionGhostText}>Annuler</Text>
+              </Pressable>
+              <Pressable style={[styles.formAction, styles.formActionPrimary, saving && styles.formActionDisabled]} onPress={editingParcelle ? handleEditSave : handleSave} disabled={saving}>
+                <Text style={styles.formActionPrimaryText}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
-      )}
+        </KeyboardAvoidingView>
+      </Modal>
 
       {parcelles.length === 0 && <Text style={styles.empty}>Aucune parcelle enregistree.</Text>}
 
@@ -232,14 +317,27 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
             {Number.isFinite(lat) && Number.isFinite(lng) && (
               <View style={styles.cardRow}><Text style={styles.cardLabel}>Centre</Text><Text style={styles.cardValue}>{lat.toFixed(4)}, {lng.toFixed(4)}</Text></View>
             )}
+            <View style={styles.cardActions}>
+              <Pressable style={styles.cardActionEdit} onPress={() => openEdit(parcelle)}><Text style={styles.cardActionEditText}>Modifier</Text></Pressable>
+              <Pressable style={styles.cardActionDelete} onPress={() => handleDelete(parcelle)}><Text style={styles.cardActionDeleteText}>Supprimer</Text></Pressable>
+            </View>
           </View>
         );
       })}
     </ScrollView>
+
+      {deleting && (
+        <View style={styles.deletingOverlay}>
+          <ActivityIndicator size="large" color="#21543d" />
+          <Text style={styles.deletingText}>Suppression...</Text>
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   container: { padding: 20, gap: 14, paddingBottom: 40 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { color: '#1d2a1e', fontSize: 18, fontWeight: '800' },
@@ -265,8 +363,10 @@ const styles = StyleSheet.create({
   saveButton: { backgroundColor: '#c96c2d', borderRadius: 16, paddingVertical: 14, alignItems: 'center' },
   saveButtonDisabled: { backgroundColor: '#d8c4b3' },
   saveButtonText: { color: '#fffaf5', fontWeight: '800' },
-  formPanel: { backgroundColor: '#fffdf8', borderRadius: 18, borderWidth: 1, borderColor: '#e0d8c7', padding: 16, gap: 8 },
-  formTitle: { color: '#1d2a1e', fontSize: 16, fontWeight: '800', marginBottom: 4 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(29, 42, 30, 0.45)', justifyContent: 'center', paddingHorizontal: 24 },
+  modalCard: { backgroundColor: '#fffdf8', borderRadius: 24, padding: 24, gap: 16, borderWidth: 1, borderColor: '#e0d8c7', elevation: 8 },
+  modalTitle: { color: '#1d2a1e', fontSize: 20, fontWeight: '800' },
+  modalField: { gap: 6 },
   formLabel: { color: '#677267', fontWeight: '600', fontSize: 13 },
   formInput: { borderWidth: 1, borderColor: '#e0d8c7', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, color: '#1d2a1e', backgroundColor: '#fbf6ea' },
   formHelper: { color: '#6c776d', fontSize: 13, marginTop: 4 },
@@ -277,4 +377,11 @@ const styles = StyleSheet.create({
   formActionPrimary: { backgroundColor: '#21543d' },
   formActionPrimaryText: { color: '#fffaf5', fontWeight: '800' },
   formActionDisabled: { opacity: 0.6 },
+  cardActions: { flexDirection: 'row', gap: 8, borderTopWidth: 1, borderTopColor: '#eee7d8', paddingTop: 10, marginTop: 2 },
+  cardActionEdit: { flex: 1, backgroundColor: '#e8e1d3', borderRadius: 12, paddingVertical: 9, alignItems: 'center' },
+  cardActionEditText: { color: '#4d5a4d', fontWeight: '700', fontSize: 14 },
+  cardActionDelete: { flex: 1, backgroundColor: '#f5e8e3', borderRadius: 12, paddingVertical: 9, alignItems: 'center' },
+  cardActionDeleteText: { color: '#9f2f1f', fontWeight: '700', fontSize: 14 },
+  deletingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(243, 240, 232, 0.85)', alignItems: 'center', justifyContent: 'center', gap: 14 },
+  deletingText: { color: '#1d2a1e', fontSize: 15, fontWeight: '700' },
 });

@@ -2,7 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View, Animated } from 'react-native';
 
 import { useAuth } from './src/features/auth/hooks/useAuth';
 import AuthScreen from './src/features/auth/screens/AuthScreen';
@@ -10,6 +10,7 @@ import DashboardScreen from './src/features/dashboard/screens/DashboardScreen';
 import DiagnosticsScreen from './src/features/diagnostics/screens/DiagnosticsScreen';
 import NewDiagnosticScreen from './src/features/diagnostics/screens/NewDiagnosticScreen';
 import RefinementScreen from './src/features/diagnostics/screens/RefinementScreen';
+import DiagnosticResultScreen from './src/features/diagnostics/screens/DiagnosticResultScreen';
 import MapScreen from './src/features/parcelles/screens/MapScreen';
 import AccountScreen from './src/features/account/screens/AccountScreen';
 
@@ -21,12 +22,14 @@ export default function App() {
   const { booting, token, user, authLoading, registerLoading, handleLogin, handleRegister, clearSession } = useAuth();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [screen, setScreen] = useState('dashboard');
   const [parcelles, setParcelles] = useState([]);
   const [diagnostics, setDiagnostics] = useState([]);
   const [selectedParcelleId, setSelectedParcelleId] = useState(null);
   const [pendingRefinement, setPendingRefinement] = useState(null);
+  const [diagnosticResult, setDiagnosticResult] = useState(null);
   const [fabImage, setFabImage] = useState(null);
 
   useEffect(() => {
@@ -45,7 +48,18 @@ export default function App() {
       Alert.alert('Synchronisation impossible', error.message);
     } finally {
       setRefreshing(false);
+      setInitialLoading(false);
     }
+  }
+
+  async function handleLogout() {
+    setScreen('dashboard');
+    setInitialLoading(true);
+    setParcelles([]);
+    setDiagnostics([]);
+    setPendingRefinement(null);
+    setDiagnosticResult(null);
+    await clearSession();
   }
 
   async function handleLogin_(credentials) {
@@ -83,9 +97,9 @@ export default function App() {
         setPendingRefinement({ diagnostic, initialCapteurs });
         setScreen('refine');
       } else {
-        setScreen('dashboard');
-        await refreshData();
-        Alert.alert('Diagnostic créé', "L'analyse est disponible dans la liste.");
+        setDiagnosticResult(diagnostic);
+        setScreen('result');
+        refreshData();
       }
     } catch (error) {
       Alert.alert('Analyse indisponible', error.message);
@@ -98,11 +112,11 @@ export default function App() {
     if (!pendingRefinement) return;
     setSubmitting(true);
     try {
-      await refineDiagnostic(token, pendingRefinement.diagnostic.id, capteurData);
+      const refined = await refineDiagnostic(token, pendingRefinement.diagnostic.id, capteurData);
       setPendingRefinement(null);
-      setScreen('dashboard');
-      await refreshData();
-      Alert.alert('Diagnostic affiné', 'Le diagnostic a été mis à jour avec les données capteurs.');
+      setDiagnosticResult(refined ?? pendingRefinement.diagnostic);
+      setScreen('result');
+      refreshData();
     } catch (error) {
       Alert.alert('Erreur', error.message);
     } finally {
@@ -113,7 +127,7 @@ export default function App() {
   async function openCamera() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) { Alert.alert('Accès refusé', 'Autorise la caméra dans les réglages.'); return; }
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaType.Images, allowsEditing: false, quality: 0.7, base64: true });
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.7, base64: true });
     setFabImage(!result.canceled && result.assets?.[0] ? result.assets[0] : null);
     setScreen('new');
   }
@@ -121,7 +135,7 @@ export default function App() {
   async function openGallery() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) { Alert.alert('Accès refusé', 'Autorise la photothèque dans les réglages.'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.Images, allowsEditing: false, quality: 0.7, base64: true });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.7, base64: true });
     setFabImage(!result.canceled && result.assets?.[0] ? result.assets[0] : null);
     setScreen('new');
   }
@@ -135,8 +149,10 @@ export default function App() {
   }
 
   function handleSkipRefinement() {
+    const diag = pendingRefinement?.diagnostic;
     setPendingRefinement(null);
-    setScreen('dashboard');
+    setDiagnosticResult(diag ?? null);
+    setScreen(diag ? 'result' : 'dashboard');
     refreshData();
   }
 
@@ -171,8 +187,10 @@ export default function App() {
         return <NewDiagnosticScreen parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} onSubmit={handleCreateDiagnostic} submitting={submitting} initialImage={fabImage} />;
       case 'refine':
         return <RefinementScreen diagnostic={pendingRefinement?.diagnostic} initialCapteurs={pendingRefinement?.initialCapteurs} submitting={submitting} onRefine={handleRefineDiagnostic} onSkip={handleSkipRefinement} />;
+      case 'result':
+        return <DiagnosticResultScreen diagnostic={diagnosticResult} onViewAll={() => { setDiagnosticResult(null); setScreen('diagnostics'); }} onGoHome={() => { setDiagnosticResult(null); setScreen('dashboard'); }} />;
       case 'account':
-        return <AccountScreen user={user} onLogout={clearSession} />;
+        return <AccountScreen user={user} onLogout={handleLogout} />;
       default:
         return null;
     }
@@ -198,6 +216,24 @@ export default function App() {
         </View>
         {renderScreen()}
       </SafeAreaView>
+
+      {initialLoading && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color="#21543d" />
+            <Text style={styles.loadingText}>Chargement des données...</Text>
+          </View>
+        </View>
+      )}
+
+      {refreshing && !initialLoading && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color="#21543d" />
+            <Text style={styles.loadingText}>Mise à jour...</Text>
+          </View>
+        </View>
+      )}
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 4 }]}>
         {tabs.map((tab) =>
@@ -230,4 +266,7 @@ const styles = StyleSheet.create({
   tabLabel: { fontSize: 11, fontWeight: '600', color: '#8a9a8b' },
   tabLabelActive: { color: '#21543d' },
   fabButton: { width: 62, height: 62, borderRadius: 31, backgroundColor: '#21543d', alignItems: 'center', justifyContent: 'center', marginBottom: 18, elevation: 8 },
+  loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(243, 240, 232, 0.85)', alignItems: 'center', justifyContent: 'center', zIndex: 10 },
+  loadingBox: { backgroundColor: '#fffdf8', borderRadius: 22, padding: 32, alignItems: 'center', gap: 16, borderWidth: 1, borderColor: '#e0d8c7', elevation: 4 },
+  loadingText: { color: '#1d2a1e', fontSize: 15, fontWeight: '700' },
 });

@@ -190,6 +190,7 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
   }, []);
 
   useEffect(() => {
+    loadCapteurs();
     if (!parcelles.length) return;
     loadCapteursByParcelle();
   }, [parcelles]);

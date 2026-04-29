@@ -110,18 +110,28 @@ export default function App() {
     }
   }
 
-  async function handleFabPress() {
+  async function openCamera() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Accès refusé', 'Autorise la caméra pour photographier la plante.', [
-        { text: 'Choisir dans la galerie', onPress: () => { setFabImage(null); setScreen('new'); } },
-        { text: 'Annuler', style: 'cancel' },
-      ]);
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.7, base64: true });
+    if (!permission.granted) { Alert.alert('Accès refusé', 'Autorise la caméra dans les réglages.'); return; }
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaType.Images, allowsEditing: false, quality: 0.7, base64: true });
     setFabImage(!result.canceled && result.assets?.[0] ? result.assets[0] : null);
     setScreen('new');
+  }
+
+  async function openGallery() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) { Alert.alert('Accès refusé', 'Autorise la photothèque dans les réglages.'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.Images, allowsEditing: false, quality: 0.7, base64: true });
+    setFabImage(!result.canceled && result.assets?.[0] ? result.assets[0] : null);
+    setScreen('new');
+  }
+
+  function handleFabPress() {
+    Alert.alert('Nouvelle photo', null, [
+      { text: 'Prendre une photo', onPress: openCamera },
+      { text: 'Choisir dans la galerie', onPress: openGallery },
+      { text: 'Annuler', style: 'cancel' },
+    ]);
   }
 
   function handleSkipRefinement() {

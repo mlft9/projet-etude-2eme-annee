@@ -3,7 +3,7 @@
  * Chaque couche reçoit ses dépendances par constructeur — aucun module
  * n'importe directement la base de données ou les services voisins.
  */
-const { User, Parcelle, Diagnostic } = require('./models');
+const { User, Parcelle, Diagnostic, CapteurReleve } = require('./models');
 
 const AiProvider = require('./providers/ai.provider');
 
@@ -26,7 +26,7 @@ const authRepository = new AuthRepository(User);
 const authService = new AuthService(authRepository);
 const authController = new AuthController(authService);
 
-const parcellesRepository = new ParcellesRepository(Parcelle);
+const parcellesRepository = new ParcellesRepository(Parcelle, CapteurReleve);
 const parcellesService = new ParcellesService(parcellesRepository);
 const parcellesController = new ParcellesController(parcellesService);
 

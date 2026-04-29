@@ -31,16 +31,17 @@ export default function LoginForm({ credentials, setCredentials, loading, onSubm
 }
 
 const styles = StyleSheet.create({
-  sectionTitle: { color: '#1d2a1e', fontSize: 18, fontWeight: '800' },
+  sectionTitle: { color: '#1d2a1e', fontSize: 20, fontWeight: '800' },
   input: {
     backgroundColor: '#f6f2e8',
     borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    fontSize: 16,
     color: '#1d2a1e',
     borderWidth: 1,
     borderColor: '#ddd4c2',
   },
-  primaryButton: { backgroundColor: '#c96c2d', borderRadius: 16, paddingVertical: 15, alignItems: 'center' },
-  primaryButtonText: { color: '#fffaf5', fontWeight: '800', fontSize: 15 },
+  primaryButton: { backgroundColor: '#c96c2d', borderRadius: 16, paddingVertical: 22, alignItems: 'center' },
+  primaryButtonText: { color: '#fffaf5', fontWeight: '800', fontSize: 17 },
 });

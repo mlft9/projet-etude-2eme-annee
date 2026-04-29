@@ -13,8 +13,17 @@ class DiagnosticsRepository {
     });
   }
 
+  findByIdAndUser(id, userId) {
+    return this.Diagnostic.findOne({ where: { id, user_id: userId } });
+  }
+
   create(data) {
     return this.Diagnostic.create(data);
+  }
+
+  async update(id, data) {
+    await this.Diagnostic.update(data, { where: { id } });
+    return this.Diagnostic.findByPk(id);
   }
 }
 

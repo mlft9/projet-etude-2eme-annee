@@ -9,10 +9,12 @@ import AuthScreen from './src/features/auth/screens/AuthScreen';
 import DashboardScreen from './src/features/dashboard/screens/DashboardScreen';
 import DiagnosticsScreen from './src/features/diagnostics/screens/DiagnosticsScreen';
 import NewDiagnosticScreen from './src/features/diagnostics/screens/NewDiagnosticScreen';
+import RefinementScreen from './src/features/diagnostics/screens/RefinementScreen';
 import MapScreen from './src/features/parcelles/screens/MapScreen';
 import AccountScreen from './src/features/account/screens/AccountScreen';
 
-import { fetchParcelles, fetchDiagnostics, createDiagnostic } from './src/shared/services/api';
+import * as ImagePicker from 'expo-image-picker';
+import { fetchParcelles, fetchDiagnostics, createDiagnostic, refineDiagnostic, fetchLatestCapteurs } from './src/shared/services/api';
 
 export default function App() {
   const insets = useSafeAreaInsets();
@@ -24,6 +26,8 @@ export default function App() {
   const [parcelles, setParcelles] = useState([]);
   const [diagnostics, setDiagnostics] = useState([]);
   const [selectedParcelleId, setSelectedParcelleId] = useState(null);
+  const [pendingRefinement, setPendingRefinement] = useState(null);
+  const [fabImage, setFabImage] = useState(null);
 
   useEffect(() => {
     if (token) refreshData();
@@ -64,18 +68,76 @@ export default function App() {
     }
   }
 
+  const CONFIDENCE_THRESHOLD = 60;
+
   async function handleCreateDiagnostic(payload) {
     setSubmitting(true);
     try {
-      await createDiagnostic(token, payload);
-      setScreen('dashboard');
-      await refreshData();
-      Alert.alert('Diagnostic créé', "L'analyse est disponible dans la liste.");
+      const diagnostic = await createDiagnostic(token, payload);
+
+      if (diagnostic.score_confiance != null && diagnostic.score_confiance < CONFIDENCE_THRESHOLD && diagnostic.parcelle_id) {
+        let initialCapteurs = null;
+        try {
+          initialCapteurs = await fetchLatestCapteurs(token, diagnostic.parcelle_id);
+        } catch (_) {}
+        setPendingRefinement({ diagnostic, initialCapteurs });
+        setScreen('refine');
+      } else {
+        setScreen('dashboard');
+        await refreshData();
+        Alert.alert('Diagnostic créé', "L'analyse est disponible dans la liste.");
+      }
     } catch (error) {
       Alert.alert('Analyse indisponible', error.message);
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleRefineDiagnostic(capteurData) {
+    if (!pendingRefinement) return;
+    setSubmitting(true);
+    try {
+      await refineDiagnostic(token, pendingRefinement.diagnostic.id, capteurData);
+      setPendingRefinement(null);
+      setScreen('dashboard');
+      await refreshData();
+      Alert.alert('Diagnostic affiné', 'Le diagnostic a été mis à jour avec les données capteurs.');
+    } catch (error) {
+      Alert.alert('Erreur', error.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function openCamera() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) { Alert.alert('Accès refusé', 'Autorise la caméra dans les réglages.'); return; }
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaType.Images, allowsEditing: false, quality: 0.7, base64: true });
+    setFabImage(!result.canceled && result.assets?.[0] ? result.assets[0] : null);
+    setScreen('new');
+  }
+
+  async function openGallery() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) { Alert.alert('Accès refusé', 'Autorise la photothèque dans les réglages.'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.Images, allowsEditing: false, quality: 0.7, base64: true });
+    setFabImage(!result.canceled && result.assets?.[0] ? result.assets[0] : null);
+    setScreen('new');
+  }
+
+  function handleFabPress() {
+    Alert.alert('Nouvelle photo', null, [
+      { text: 'Prendre une photo', onPress: openCamera },
+      { text: 'Choisir dans la galerie', onPress: openGallery },
+      { text: 'Annuler', style: 'cancel' },
+    ]);
+  }
+
+  function handleSkipRefinement() {
+    setPendingRefinement(null);
+    setScreen('dashboard');
+    refreshData();
   }
 
   if (booting) {
@@ -106,7 +168,9 @@ export default function App() {
       case 'diagnostics':
         return <DiagnosticsScreen diagnostics={diagnostics} parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} refreshing={refreshing} onRefresh={refreshData} />;
       case 'new':
-        return <NewDiagnosticScreen parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} onSubmit={handleCreateDiagnostic} submitting={submitting} />;
+        return <NewDiagnosticScreen parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} onSubmit={handleCreateDiagnostic} submitting={submitting} initialImage={fabImage} />;
+      case 'refine':
+        return <RefinementScreen diagnostic={pendingRefinement?.diagnostic} initialCapteurs={pendingRefinement?.initialCapteurs} submitting={submitting} onRefine={handleRefineDiagnostic} onSkip={handleSkipRefinement} />;
       case 'account':
         return <AccountScreen user={user} onLogout={clearSession} />;
       default:
@@ -138,7 +202,7 @@ export default function App() {
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 4 }]}>
         {tabs.map((tab) =>
           tab.icon === null ? (
-            <Pressable key={tab.key} style={styles.fabButton} onPress={() => setScreen('new')}>
+            <Pressable key={tab.key} style={styles.fabButton} onPress={handleFabPress}>
               <Ionicons name="add" size={32} color="#fffdf8" />
             </Pressable>
           ) : (

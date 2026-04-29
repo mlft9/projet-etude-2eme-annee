@@ -1,5 +1,6 @@
-require('dotenv').config();
-const pool = require('../db/pool');
+require('dotenv').config({ path: require('path').join(__dirname, '../../../.env') });
+const { Pool } = require('pg');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false });
 
 const MIN_INTERVAL_MS = 10_000;
 const MAX_INTERVAL_MS = 30_000;
@@ -26,7 +27,7 @@ async function insertReadings() {
   const queries = rows.map((parcelle) => {
     const reading = buildReading();
     return pool.query(
-      'INSERT INTO capteurs_releves (parcelle_id, temperature, humidite, pluviometrie) VALUES ($1, $2, $3, $4)',
+      'INSERT INTO capteurs_releves (parcelle_id, temperature, humidite, pluviometrie, timestamp) VALUES ($1, $2, $3, $4, NOW())',
       [parcelle.id, reading.temperature, reading.humidite, reading.pluviometrie]
     );
   });

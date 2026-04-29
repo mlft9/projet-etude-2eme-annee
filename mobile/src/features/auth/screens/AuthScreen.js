@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   heroText: { color: '#dce7dd', fontSize: 15, lineHeight: 22 },
   card: { backgroundColor: '#fffdf8', borderRadius: 22, padding: 18, gap: 14, borderWidth: 1, borderColor: '#e0d8c7' },
   authTabs: { flexDirection: 'row', backgroundColor: '#f3ead8', borderRadius: 16, padding: 4, gap: 6 },
-  authTab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 14 },
+  authTab: { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: 14 },
   authTabActive: { backgroundColor: '#21543d' },
   authTabText: { color: '#6d7a6e', fontWeight: '700' },
   authTabTextActive: { color: '#fffdf8' },

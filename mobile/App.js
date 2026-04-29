@@ -22,7 +22,7 @@ import { fetchParcelles, fetchDiagnostics, createDiagnostic, refineDiagnostic, f
 
 export default function App() {
   const insets = useSafeAreaInsets();
-  const { booting, token, user, authLoading, registerLoading, handleLogin, handleRegister, clearSession } = useAuth();
+  const { booting, token, user, authLoading, handleLogin, clearSession } = useAuth();
 
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -73,18 +73,6 @@ export default function App() {
       await handleLogin(credentials);
     } catch (error) {
       Alert.alert('Connexion impossible', error.message);
-    }
-  }
-
-  async function handleRegister_(data) {
-    const { name, email, password, confirmPassword } = data;
-    if (!name || !email || !password) { Alert.alert('Champs incomplets', 'Renseigne le nom, l email et le mot de passe.'); return; }
-    if (password.length < 6) { Alert.alert('Mot de passe trop court', 'Utilise au moins 6 caracteres.'); return; }
-    if (password !== confirmPassword) { Alert.alert('Mot de passe', 'Les mots de passe ne correspondent pas.'); return; }
-    try {
-      await handleRegister({ name: name.trim(), email: email.trim(), password });
-    } catch (error) {
-      Alert.alert('Inscription impossible', error.message);
     }
   }
 
@@ -186,9 +174,7 @@ export default function App() {
     return (
       <AuthScreen
         authLoading={authLoading}
-        registerLoading={registerLoading}
         onLogin={handleLogin_}
-        onRegister={handleRegister_}
       />
     );
   }

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
-import { login as apiLogin, register as apiRegister } from '../../../shared/services/api';
+import { login as apiLogin } from '../../../shared/services/api';
 
 const SESSION_KEY = 'parcellia.session';
 
@@ -9,7 +9,6 @@ export function useAuth() {
   const [token, setToken] = useState('');
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
-  const [registerLoading, setRegisterLoading] = useState(false);
 
   useEffect(() => {
     async function restoreSession() {
@@ -51,15 +50,5 @@ export function useAuth() {
     }
   }
 
-  async function handleRegister(data) {
-    setRegisterLoading(true);
-    try {
-      const session = await apiRegister(data);
-      await persistSession(session.token, session.user);
-    } finally {
-      setRegisterLoading(false);
-    }
-  }
-
-  return { booting, token, user, authLoading, registerLoading, handleLogin, handleRegister, clearSession };
+  return { booting, token, user, authLoading, handleLogin, clearSession };
 }

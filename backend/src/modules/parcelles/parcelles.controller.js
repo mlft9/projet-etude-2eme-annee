@@ -25,6 +25,16 @@ class ParcellesController {
       res.status(err.status || 500).json({ error: err.message });
     }
   }
+
+  async getLatestCapteurs(req, res) {
+    try {
+      const releve = await this.parcellesService.getLatestCapteurs(req.params.id, req.user.id);
+      if (!releve) return res.status(404).json({ error: 'Aucun relevé capteur disponible' });
+      res.json(releve);
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message });
+    }
+  }
 }
 
 module.exports = ParcellesController;

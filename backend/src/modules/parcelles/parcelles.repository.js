@@ -1,6 +1,7 @@
 class ParcellesRepository {
-  constructor(ParcelleModel) {
+  constructor(ParcelleModel, CapteurReleveModel) {
     this.Parcelle = ParcelleModel;
+    this.CapteurReleve = CapteurReleveModel;
   }
 
   findAllByUser(userId) {
@@ -10,8 +11,19 @@ class ParcellesRepository {
     });
   }
 
+  findByIdAndUser(id, userId) {
+    return this.Parcelle.findOne({ where: { id, user_id: userId } });
+  }
+
   create(data) {
     return this.Parcelle.create(data);
+  }
+
+  latestCapteurs(parcelleId) {
+    return this.CapteurReleve.findOne({
+      where: { parcelle_id: parcelleId },
+      order: [['timestamp', 'DESC']],
+    });
   }
 }
 

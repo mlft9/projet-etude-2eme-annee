@@ -15,6 +15,11 @@ export default function DiagnosticCard({ diagnostic }) {
         <RiskBadge value={diagnostic.niveau_risque} />
       </View>
       <Text style={styles.advice}>{diagnostic.conseil}</Text>
+      {diagnostic.score_confiance != null && (
+        <Text style={[styles.confidence, diagnostic.score_confiance < 60 && styles.confidenceLow]}>
+          Confiance IA : {diagnostic.score_confiance}%
+        </Text>
+      )}
     </View>
   );
 }
@@ -26,4 +31,6 @@ const styles = StyleSheet.create({
   title: { color: '#1d2a1e', fontSize: 16, fontWeight: '700' },
   meta: { color: '#677267', fontSize: 12 },
   advice: { color: '#374238', lineHeight: 21 },
+  confidence: { color: '#6c776d', fontSize: 12, fontWeight: '600' },
+  confidenceLow: { color: '#c96c2d' },
 });

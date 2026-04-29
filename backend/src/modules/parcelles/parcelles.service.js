@@ -9,6 +9,12 @@ class ParcellesService {
     return this.parcellesRepository.findAllByUser(userId);
   }
 
+  async getLatestCapteurs(parcelleId, userId) {
+    const parcelle = await this.parcellesRepository.findByIdAndUser(parcelleId, userId);
+    if (!parcelle) throw Object.assign(new Error('Parcelle introuvable'), { status: 404 });
+    return this.parcellesRepository.latestCapteurs(parcelleId);
+  }
+
   create(userId, { name, culture, geometry, surface_ha }) {
     const points = normalizePoints(geometry);
     if (!points) throw Object.assign(new Error('Coordonnées invalides'), { status: 400 });

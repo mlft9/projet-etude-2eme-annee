@@ -8,4 +8,10 @@ function validateCreate({ image_base64 } = {}) {
   return null;
 }
 
-module.exports = { validateCreate };
+function validateAffiner({ temperature, humidite, pluviometrie } = {}) {
+  if (temperature == null || humidite == null || pluviometrie == null)
+    return 'temperature, humidite et pluviometrie requis';
+  return null;
+}
+
+module.exports = { validateCreate, validateAffiner };

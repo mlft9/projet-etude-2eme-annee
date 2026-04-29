@@ -9,10 +9,11 @@ import AuthScreen from './src/features/auth/screens/AuthScreen';
 import DashboardScreen from './src/features/dashboard/screens/DashboardScreen';
 import DiagnosticsScreen from './src/features/diagnostics/screens/DiagnosticsScreen';
 import NewDiagnosticScreen from './src/features/diagnostics/screens/NewDiagnosticScreen';
+import RefinementScreen from './src/features/diagnostics/screens/RefinementScreen';
 import MapScreen from './src/features/parcelles/screens/MapScreen';
 import AccountScreen from './src/features/account/screens/AccountScreen';
 
-import { fetchParcelles, fetchDiagnostics, createDiagnostic } from './src/shared/services/api';
+import { fetchParcelles, fetchDiagnostics, createDiagnostic, refineDiagnostic, fetchLatestCapteurs } from './src/shared/services/api';
 
 export default function App() {
   const insets = useSafeAreaInsets();
@@ -24,6 +25,7 @@ export default function App() {
   const [parcelles, setParcelles] = useState([]);
   const [diagnostics, setDiagnostics] = useState([]);
   const [selectedParcelleId, setSelectedParcelleId] = useState(null);
+  const [pendingRefinement, setPendingRefinement] = useState(null);
 
   useEffect(() => {
     if (token) refreshData();
@@ -64,18 +66,52 @@ export default function App() {
     }
   }
 
+  const CONFIDENCE_THRESHOLD = 60;
+
   async function handleCreateDiagnostic(payload) {
     setSubmitting(true);
     try {
-      await createDiagnostic(token, payload);
-      setScreen('dashboard');
-      await refreshData();
-      Alert.alert('Diagnostic créé', "L'analyse est disponible dans la liste.");
+      const diagnostic = await createDiagnostic(token, payload);
+
+      if (diagnostic.score_confiance != null && diagnostic.score_confiance < CONFIDENCE_THRESHOLD && diagnostic.parcelle_id) {
+        let initialCapteurs = null;
+        try {
+          initialCapteurs = await fetchLatestCapteurs(token, diagnostic.parcelle_id);
+        } catch (_) {}
+        setPendingRefinement({ diagnostic, initialCapteurs });
+        setScreen('refine');
+      } else {
+        setScreen('dashboard');
+        await refreshData();
+        Alert.alert('Diagnostic créé', "L'analyse est disponible dans la liste.");
+      }
     } catch (error) {
       Alert.alert('Analyse indisponible', error.message);
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleRefineDiagnostic(capteurData) {
+    if (!pendingRefinement) return;
+    setSubmitting(true);
+    try {
+      await refineDiagnostic(token, pendingRefinement.diagnostic.id, capteurData);
+      setPendingRefinement(null);
+      setScreen('dashboard');
+      await refreshData();
+      Alert.alert('Diagnostic affiné', 'Le diagnostic a été mis à jour avec les données capteurs.');
+    } catch (error) {
+      Alert.alert('Erreur', error.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleSkipRefinement() {
+    setPendingRefinement(null);
+    setScreen('dashboard');
+    refreshData();
   }
 
   if (booting) {
@@ -107,6 +143,8 @@ export default function App() {
         return <DiagnosticsScreen diagnostics={diagnostics} parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} refreshing={refreshing} onRefresh={refreshData} />;
       case 'new':
         return <NewDiagnosticScreen parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} onSubmit={handleCreateDiagnostic} submitting={submitting} />;
+      case 'refine':
+        return <RefinementScreen diagnostic={pendingRefinement?.diagnostic} initialCapteurs={pendingRefinement?.initialCapteurs} submitting={submitting} onRefine={handleRefineDiagnostic} onSkip={handleSkipRefinement} />;
       case 'account':
         return <AccountScreen user={user} onLogout={clearSession} />;
       default:

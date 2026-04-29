@@ -1,5 +1,6 @@
-require('dotenv').config();
-const pool = require('../db/pool');
+require('dotenv').config({ path: require('path').join(__dirname, '../../../.env') });
+const { Pool } = require('pg');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false });
 
 const MIN_INTERVAL_MS = 10_000;
 const MAX_INTERVAL_MS = 30_000;

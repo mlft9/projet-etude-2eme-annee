@@ -47,3 +47,17 @@ export function createDiagnostic(token, payload) {
     body: JSON.stringify(payload),
   });
 }
+
+export function refineDiagnostic(token, diagnosticId, capteurData) {
+  return request(`/diagnostics/${diagnosticId}/affiner`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(capteurData),
+  });
+}
+
+export function fetchLatestCapteurs(token, parcelleId) {
+  return request(`/parcelles/${parcelleId}/capteurs/latest`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}

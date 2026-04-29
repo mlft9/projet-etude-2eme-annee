@@ -126,7 +126,7 @@ export default function PlantDetailsScreen({ plant, token, onBack }) {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header - fixe */}
       <View style={styles.header}>
         <Pressable onPress={onBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={28} color="#21543d" />
@@ -137,34 +137,7 @@ export default function PlantDetailsScreen({ plant, token, onBack }) {
         </View>
       </View>
 
-      {/* Varieties */}
-      <View style={styles.varietiesContainer}>
-        <Text style={styles.varietiesTitle}>📌 Variétés cultivées</Text>
-        <View style={styles.varietiesList}>
-          {plantData.varieties.map((v, i) => (
-            <View key={i} style={styles.varietyTag}>
-              <Text style={styles.varietyText}>{v}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.infoBlock}>
-        <Text style={styles.infoTitle}>🌱 Spécificités de la plante</Text>
-        {plantData.specificities?.map((item, index) => (
-          <Text key={index} style={styles.infoLine}>• {item}</Text>
-        ))}
-      </View>
-
-      <View style={styles.infoBlock}>
-        <Text style={styles.infoTitle}>💧 Besoins de la plante</Text>
-        <Text style={styles.infoLine}>Eau: {plantData.needs?.water}</Text>
-        <Text style={styles.infoLine}>Sol: {plantData.needs?.soil}</Text>
-        <Text style={styles.infoLine}>Température: {plantData.needs?.temperature}</Text>
-        <Text style={styles.infoLine}>Nutrition: {plantData.needs?.nutrition}</Text>
-      </View>
-
-      {/* Tabs */}
+      {/* Tab bar - fixe */}
       <View style={styles.tabBar}>
         <Pressable
           style={[styles.tab, tab === 'diseases' && styles.tabActive]}
@@ -175,7 +148,6 @@ export default function PlantDetailsScreen({ plant, token, onBack }) {
             Maladies ({plantData.diseases.length})
           </Text>
         </Pressable>
-
         <Pressable
           style={[styles.tab, tab === 'pests' && styles.tabActive]}
           onPress={() => setTab('pests')}
@@ -187,15 +159,42 @@ export default function PlantDetailsScreen({ plant, token, onBack }) {
         </Pressable>
       </View>
 
-      {/* Content */}
+      {/* Tout le contenu scrollable */}
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        {/* Variétés, spécificités, besoins — maintenant dans le scroll */}
+        <View style={styles.infoSection}>
+          <Text style={styles.varietiesTitle}>📌 Variétés cultivées</Text>
+          <View style={styles.varietiesList}>
+            {plantData.varieties.map((v, i) => (
+              <View key={i} style={styles.varietyTag}>
+                <Text style={styles.varietyText}>{v}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.infoSection}>
+          <Text style={styles.infoTitle}>🌱 Spécificités de la plante</Text>
+          {plantData.specificities?.map((item, index) => (
+            <Text key={index} style={styles.infoLine}>• {item}</Text>
+          ))}
+        </View>
+
+        <View style={styles.infoSection}>
+          <Text style={styles.infoTitle}>💧 Besoins de la plante</Text>
+          <Text style={styles.infoLine}>Eau: {plantData.needs?.water}</Text>
+          <Text style={styles.infoLine}>Sol: {plantData.needs?.soil}</Text>
+          <Text style={styles.infoLine}>Température: {plantData.needs?.temperature}</Text>
+          <Text style={styles.infoLine}>Nutrition: {plantData.needs?.nutrition}</Text>
+        </View>
+
+        {/* Maladies / Nuisibles */}
         {tab === 'diseases' && (
           <View>
             <Text style={styles.contentTitle}>Maladies courantes</Text>
             {plantData.diseases.map(renderDiseaseCard)}
           </View>
         )}
-
         {tab === 'pests' && (
           <View>
             <Text style={styles.contentTitle}>Nuisibles susceptibles</Text>
@@ -203,6 +202,7 @@ export default function PlantDetailsScreen({ plant, token, onBack }) {
           </View>
         )}
 
+        {/* Chat IA */}
         <View style={styles.assistantCard}>
           <Text style={styles.assistantTitle}>🤖 Questionner l'IA sur {plantData.name}</Text>
           <TextInput
@@ -229,17 +229,14 @@ export default function PlantDetailsScreen({ plant, token, onBack }) {
             <View style={styles.answerBox}>
               <Text style={styles.answerTitle}>Résumé</Text>
               <Text style={styles.answerText}>{assistantAnswer.resume || 'Aucune réponse.'}</Text>
-
               <Text style={styles.answerTitle}>Conseils</Text>
               {(assistantAnswer.conseils || []).map((item, index) => (
                 <Text key={`c-${index}`} style={styles.answerText}>• {item}</Text>
               ))}
-
               <Text style={styles.answerTitle}>Vigilance</Text>
               {(assistantAnswer.vigilance || []).map((item, index) => (
                 <Text key={`v-${index}`} style={styles.answerText}>• {item}</Text>
               ))}
-
               <Text style={styles.answerTitle}>Prochaines actions</Text>
               {(assistantAnswer.prochaines_actions || []).map((item, index) => (
                 <Text key={`p-${index}`} style={styles.answerText}>• {item}</Text>
@@ -278,20 +275,13 @@ const styles = StyleSheet.create({
     color: '#6b7a6d',
     marginTop: 2,
   },
-  varietiesContainer: {
+  infoSection: {
     backgroundColor: '#fffdf8',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0d8c7',
-  },
-  infoBlock: {
-    backgroundColor: '#fffdf8',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0d8c7',
+    borderRadius: 12,
+    padding: 14,
     gap: 6,
+    borderWidth: 1,
+    borderColor: '#e0d8c7',
   },
   infoTitle: {
     fontSize: 13,

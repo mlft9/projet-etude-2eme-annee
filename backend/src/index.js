@@ -41,7 +41,7 @@ async function start() {
 
   app.listen(PORT, () => {
     console.log(`Backend parcell-ia démarré sur le port ${PORT}`);
-    startIotSimulator();
+    if (process.env.NODE_ENV !== 'production') startIotSimulator();
   });
 }
 

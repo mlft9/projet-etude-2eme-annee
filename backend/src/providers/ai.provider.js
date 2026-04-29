@@ -47,7 +47,6 @@ function hasUsableValue(value) {
 class AiProvider {
   constructor() {
     this.hasAzure = hasUsableValue(process.env.AZURE_OPENAI_KEY) && hasUsableValue(process.env.AZURE_OPENAI_ENDPOINT);
-    this.hasOpenAI = hasUsableValue(process.env.OPENAI_API_KEY);
   }
 
   _buildMockResponse() {
@@ -91,20 +90,17 @@ class AiProvider {
   }
 
   _buildClient() {
-    if (this.hasAzure) {
-      return new OpenAI({
-        apiKey: process.env.AZURE_OPENAI_KEY,
-        baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o'}`,
-        defaultQuery: { 'api-version': '2025-01-01-preview' },
-        defaultHeaders: { 'api-key': process.env.AZURE_OPENAI_KEY },
-      });
-    }
-    return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    return new OpenAI({
+      apiKey: process.env.AZURE_OPENAI_KEY,
+      baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o'}`,
+      defaultQuery: { 'api-version': '2025-01-01-preview' },
+      defaultHeaders: { 'api-key': process.env.AZURE_OPENAI_KEY },
+    });
   }
 
   async _analyze(prompt, imageBase64) {
     const client = this._buildClient();
-    const model = this.hasAzure ? (process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o') : 'gpt-4o';
+    const model = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
 
     const response = await client.chat.completions.create({
       model,
@@ -124,7 +120,7 @@ class AiProvider {
   }
 
   async analyzeImage(imageBase64) {
-    if (!this.hasAzure && !this.hasOpenAI) return this._buildMockResponse();
+    if (!this.hasAzure) return this._buildMockResponse();
     try {
       return await this._analyze(PROMPT_IMAGE, imageBase64);
     } catch (err) {
@@ -134,7 +130,7 @@ class AiProvider {
   }
 
   async analyzeWithSensors(imageBase64, sensors) {
-    if (!this.hasAzure && !this.hasOpenAI) return this._buildMockRefinedResponse(sensors);
+    if (!this.hasAzure) return this._buildMockRefinedResponse(sensors);
     try {
       return await this._analyze(buildSensorPrompt(sensors), imageBase64);
     } catch (err) {
@@ -144,11 +140,11 @@ class AiProvider {
   }
 
   async askPlantQuestion({ plantName, question, context }) {
-    if (!this.hasAzure && !this.hasOpenAI) return this._buildMockPlantAnswer(plantName, question);
+    if (!this.hasAzure) return this._buildMockPlantAnswer(plantName, question);
 
     try {
       const client = this._buildClient();
-      const model = this.hasAzure ? (process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o') : 'gpt-4o';
+      const model = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
       const response = await client.chat.completions.create({
         model,
         messages: [{ role: 'user', content: buildPlantPrompt(plantName, question, context) }],

@@ -188,7 +188,7 @@ export default function App() {
       case 'diagnostics':
         return <DiagnosticsScreen diagnostics={diagnostics} parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} refreshing={refreshing} onRefresh={refreshData} onOpenPlantLibrary={() => openPlantLibrary(null, 'diagnostics')} onViewPlant={(plant) => openPlantLibrary(plant, 'diagnostics')} onOpenDiagnostic={(d) => { setSelectedDiagnostic(d); setScreen('diagnostic-detail'); }} />;
       case 'new':
-        return <NewDiagnosticScreen parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} onSubmit={handleCreateDiagnostic} submitting={submitting} initialImage={fabImage} />;
+        return <NewDiagnosticScreen parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} onSubmit={handleCreateDiagnostic} submitting={submitting} initialImage={fabImage} onViewPlant={(plant) => openPlantDetails(plant, 'new')} />;
       case 'refine':
         return <RefinementScreen diagnostic={pendingRefinement?.diagnostic} initialCapteurs={pendingRefinement?.initialCapteurs} submitting={submitting} onRefine={handleRefineDiagnostic} onSkip={handleSkipRefinement} />;
       case 'plant-library':

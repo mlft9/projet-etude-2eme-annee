@@ -8,3 +8,4 @@ build/
 PLAN.md
 VEILLE.md
 .claude/
+deploy-azure.sh

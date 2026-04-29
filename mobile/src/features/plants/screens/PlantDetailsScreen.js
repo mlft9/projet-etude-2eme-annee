@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View, ScrollView, Pressable, TextInput } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PLANTS_DATA } from '../../../shared/data/plantsData';
 import { askPlantAssistant } from '../../../shared/services/api';
@@ -10,6 +10,11 @@ export default function PlantDetailsScreen({ plant, token, onBack }) {
   const [context, setContext] = useState('');
   const [loadingAnswer, setLoadingAnswer] = useState(false);
   const [assistantAnswer, setAssistantAnswer] = useState(null);
+  const scrollRef = useRef(null);
+
+  const scrollToInput = () => {
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+  };
 
   const normalizedPlant = String(plant || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
   const aliases = {
@@ -104,6 +109,7 @@ export default function PlantDetailsScreen({ plant, token, onBack }) {
 
   async function handleAskAssistant() {
     if (!question.trim()) return;
+    Keyboard.dismiss();
     setLoadingAnswer(true);
     try {
       const response = await askPlantAssistant(token, {
@@ -125,7 +131,10 @@ export default function PlantDetailsScreen({ plant, token, onBack }) {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       {/* Header - fixe */}
       <View style={styles.header}>
         <Pressable onPress={onBack} style={styles.backButton}>
@@ -160,7 +169,7 @@ export default function PlantDetailsScreen({ plant, token, onBack }) {
       </View>
 
       {/* Tout le contenu scrollable */}
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView ref={scrollRef} style={styles.content} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
         {/* Variétés, spécificités, besoins — maintenant dans le scroll */}
         <View style={styles.infoSection}>
           <Text style={styles.varietiesTitle}>📌 Variétés cultivées</Text>
@@ -209,6 +218,7 @@ export default function PlantDetailsScreen({ plant, token, onBack }) {
             style={styles.input}
             value={question}
             onChangeText={setQuestion}
+            onFocus={scrollToInput}
             placeholder="Pose une question précise (ex: risque mildiou cette semaine?)"
             placeholderTextColor="#95a196"
             multiline
@@ -217,6 +227,9 @@ export default function PlantDetailsScreen({ plant, token, onBack }) {
             style={styles.input}
             value={context}
             onChangeText={setContext}
+            onFocus={scrollToInput}
+            onSubmitEditing={handleAskAssistant}
+            returnKeyType="send"
             placeholder="Contexte optionnel (météo, stade, observations)"
             placeholderTextColor="#95a196"
             multiline
@@ -245,7 +258,7 @@ export default function PlantDetailsScreen({ plant, token, onBack }) {
           )}
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

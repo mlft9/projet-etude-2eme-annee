@@ -15,6 +15,12 @@ class ParcellesService {
     return this.parcellesRepository.latestCapteurs(parcelleId);
   }
 
+  async getCapteurs(parcelleId, userId) {
+    const parcelle = await this.parcellesRepository.findByIdAndUser(parcelleId, userId);
+    if (!parcelle) throw Object.assign(new Error('Parcelle introuvable'), { status: 404 });
+    return this.parcellesRepository.getCapteursWithLatest(parcelleId);
+  }
+
   async delete(parcelleId, userId) {
     const deleted = await this.parcellesRepository.deleteByIdAndUser(parcelleId, userId);
     if (!deleted) throw Object.assign(new Error('Parcelle introuvable'), { status: 404 });

@@ -190,7 +190,7 @@ export default function App() {
       case 'result':
         return <DiagnosticResultScreen diagnostic={diagnosticResult} onViewAll={() => { setDiagnosticResult(null); setScreen('diagnostics'); }} onGoHome={() => { setDiagnosticResult(null); setScreen('dashboard'); }} />;
       case 'account':
-        return <AccountScreen user={user} onLogout={handleLogout} />;
+        return <AccountScreen user={user} token={token} onLogout={handleLogout} />;
       default:
         return null;
     }

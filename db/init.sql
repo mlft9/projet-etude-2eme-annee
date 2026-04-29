@@ -45,6 +45,17 @@ CREATE TABLE IF NOT EXISTS capteurs_releves (
   timestamp TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS capteurs (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  serial_number VARCHAR(255),
+  parcelle_id INTEGER REFERENCES parcelles(id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+ALTER TABLE capteurs_releves ADD COLUMN IF NOT EXISTS capteur_id INTEGER REFERENCES capteurs(id) ON DELETE SET NULL;
+
 -- Seed utilisateur de démo
 INSERT INTO users (email, password_hash, name) VALUES
   ('demo@parcell-ia.com', '$2b$10$demo_hash_placeholder', 'Agriculteur Demo')

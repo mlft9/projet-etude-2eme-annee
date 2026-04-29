@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import * as Location from 'expo-location';
-import { createParcelle, updateParcelle, deleteParcelle } from '../../../shared/services/api';
+import { createParcelle, updateParcelle, deleteParcelle, fetchCapteurs, associateCapteur, fetchCapteursForParcelle } from '../../../shared/services/api';
 import { normalizePolygon, computeSurfaceHa } from '../../../shared/utils/geo';
 import CultureBadge from '../components/CultureBadge';
 
@@ -10,7 +10,17 @@ if (Platform.OS !== 'web') {
   WebView = require('react-native-webview').WebView;
 }
 
-const DEFAULT_CENTER = { latitude: 48.8566, longitude: 2.3522, zoom: 11 };
+const DEFAULT_CENTER = { latitude: 48.086, longitude: -1.617, zoom: 14 };
+const CAPTEUR_RADIUS_M = 50;
+const CAPTEUR_COVERAGE_M2 = Math.PI * CAPTEUR_RADIUS_M * CAPTEUR_RADIUS_M * 0.9;
+
+function recommendedCapteurs(surfaceHa) {
+  return Math.max(1, Math.ceil((surfaceHa * 10000) / CAPTEUR_COVERAGE_M2));
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+}
 
 function buildLeafletHtml({ center, savedPolygons }) {
   return `<!DOCTYPE html>
@@ -19,7 +29,18 @@ function buildLeafletHtml({ center, savedPolygons }) {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>html, body, #map { height: 100%; margin: 0; padding: 0; } body { background: #fffdf8; }</style>
+    <style>
+      html, body, #map { height: 100%; margin: 0; padding: 0; }
+      body { background: #fffdf8; }
+      .capteur-popup { font-family: sans-serif; font-size: 13px; min-width: 160px; }
+      .capteur-popup h3 { margin: 0 0 4px; font-size: 15px; color: #1d2a1e; }
+      .capteur-popup .meta { color: #677267; margin-bottom: 6px; }
+      .capteur-popup hr { border: none; border-top: 1px solid #e0d8c7; margin: 6px 0; }
+      .capteur-popup .capteur-block { margin-bottom: 6px; }
+      .capteur-popup .capteur-name { font-weight: 700; color: #21543d; }
+      .capteur-popup .capteur-vals { color: #1d2a1e; margin-top: 2px; }
+      .capteur-popup .no-data { color: #9aa49a; font-style: italic; }
+    </style>
   </head>
   <body>
     <div id="map"></div>
@@ -30,11 +51,56 @@ function buildLeafletHtml({ center, savedPolygons }) {
 
       var savedLayer = L.layerGroup().addTo(map);
       var savedPolygons = ${JSON.stringify(savedPolygons || [])};
+
       savedPolygons.forEach(function (poly) {
         var coords = poly.points.map(function (p) { return [p.lat, p.lng]; });
+
+        var centLat = coords.reduce(function(s, c) { return s + c[0]; }, 0) / coords.length;
+        var centLng = coords.reduce(function(s, c) { return s + c[1]; }, 0) / coords.length;
+
+        var capteurs = poly.capteurs || [];
+
+        var popupHtml = '<div class="capteur-popup">';
+        popupHtml += '<h3>' + poly.name + '</h3>';
+        popupHtml += '<div class="meta">' + (poly.culture ? poly.culture + ' &mdash; ' : '') + (poly.surface_ha || '-') + ' ha</div>';
+
+        if (capteurs.length > 0) {
+          popupHtml += '<hr/>';
+          capteurs.forEach(function(c) {
+            popupHtml += '<div class="capteur-block">';
+            popupHtml += '<div class="capteur-name">' + c.name + '</div>';
+            if (c.latest) {
+              popupHtml += '<div class="capteur-vals">';
+              popupHtml += '&#127777; ' + c.latest.temperature + '&deg;C &nbsp; ';
+              popupHtml += '&#128167; ' + c.latest.humidite + '% &nbsp; ';
+              popupHtml += '&#127783; ' + c.latest.pluviometrie + 'mm';
+              popupHtml += '</div>';
+            } else {
+              popupHtml += '<div class="no-data">Aucun releve</div>';
+            }
+            popupHtml += '</div>';
+          });
+        }
+        popupHtml += '</div>';
+
         L.polygon(coords, { color: '#21543d', fillColor: '#21543d', fillOpacity: 0.2, weight: 2 })
           .addTo(savedLayer)
-          .bindPopup('<b>' + poly.name + '</b><br/>' + (poly.culture || '') + '<br/>' + (poly.surface_ha || '-') + ' ha');
+          .bindPopup(popupHtml, { maxWidth: 260 });
+
+        capteurs.forEach(function(c, idx) {
+          var pos;
+          if (capteurs.length === 1) {
+            pos = [centLat, centLng];
+          } else {
+            var angle = (2 * Math.PI * idx) / capteurs.length;
+            var offset = 0.0004;
+            pos = [centLat + offset * Math.sin(angle), centLng + offset * Math.cos(angle)];
+          }
+          L.circle(pos, { radius: 50, color: '#c96c2d', fillColor: '#c96c2d', fillOpacity: 0.08, weight: 1.5, dashArray: '5 4', interactive: false })
+            .addTo(savedLayer);
+          L.circle(pos, { radius: 8, color: '#c96c2d', fillColor: '#c96c2d', fillOpacity: 1, weight: 2, interactive: false })
+            .addTo(savedLayer);
+        });
       });
 
       var drawMode = false, points = [], polygon = null, pointMarkers = [], userMarker = null;
@@ -85,13 +151,9 @@ function buildLeafletHtml({ center, savedPolygons }) {
 }
 
 export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
-  const savedPolygons = useMemo(() =>
-    parcelles.map((p) => {
-      const points = normalizePolygon(p.geometry);
-      if (!points) return null;
-      return { id: p.id, name: String(p.name || '').replace(/[<>]/g, ''), culture: String(p.culture || '').replace(/[<>]/g, ''), surface_ha: p.surface_ha, points };
-    }).filter(Boolean),
-  [parcelles]);
+  const [capteursList, setCapteursList] = useState([]);
+  const [capteursByParcelle, setCapteursByParcelle] = useState({});
+  const [selectedCapteurIds, setSelectedCapteurIds] = useState([]);
 
   const [drawMode, setDrawMode] = useState(false);
   const [points, setPoints] = useState([]);
@@ -105,11 +167,68 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
   const [editCulture, setEditCulture] = useState('');
   const { height: screenHeight } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
-  const initialHtml = useMemo(() => buildLeafletHtml({ center: DEFAULT_CENTER, savedPolygons }), [savedPolygons]);
   const webviewRef = useRef(null);
   const iframeRef = useRef(null);
   const mapReadyRef = useRef(false);
   const pendingCenterRef = useRef(null);
+
+  useEffect(() => {
+    loadCapteurs();
+  }, []);
+
+  useEffect(() => {
+    if (!parcelles.length) return;
+    loadCapteursByParcelle();
+  }, [parcelles]);
+
+  async function loadCapteurs() {
+    try {
+      const data = await fetchCapteurs(token);
+      setCapteursList(data);
+    } catch {}
+  }
+
+  async function loadCapteursByParcelle() {
+    try {
+      const results = await Promise.all(
+        parcelles.map(async (p) => {
+          try {
+            const capteurs = await fetchCapteursForParcelle(token, p.id);
+            return [p.id, capteurs];
+          } catch {
+            return [p.id, []];
+          }
+        })
+      );
+      setCapteursByParcelle(Object.fromEntries(results));
+    } catch {}
+  }
+
+  const savedPolygons = useMemo(() =>
+    parcelles.map((p) => {
+      const points = normalizePolygon(p.geometry);
+      if (!points) return null;
+      const capteurs = (capteursByParcelle[p.id] || []).map((c) => ({
+        id: c.id,
+        name: escHtml(c.name),
+        latest: c.latest ? {
+          temperature: c.latest.temperature,
+          humidite: c.latest.humidite,
+          pluviometrie: c.latest.pluviometrie,
+        } : null,
+      }));
+      return {
+        id: p.id,
+        name: String(p.name || '').replace(/[<>]/g, ''),
+        culture: String(p.culture || '').replace(/[<>]/g, ''),
+        surface_ha: p.surface_ha,
+        points,
+        capteurs,
+      };
+    }).filter(Boolean),
+  [parcelles, capteursByParcelle]);
+
+  const initialHtml = useMemo(() => buildLeafletHtml({ center: DEFAULT_CENTER, savedPolygons }), [savedPolygons]);
 
   function postToMap(message) {
     const payload = JSON.stringify(message);
@@ -153,14 +272,24 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
     setDrawMode((curr) => { const next = !curr; postToMap({ type: 'setDrawMode', value: next }); return next; });
   }
 
+  function toggleCapteurSelection(id) {
+    setSelectedCapteurIds((curr) =>
+      curr.includes(id) ? curr.filter((x) => x !== id) : [...curr, id]
+    );
+  }
+
   async function handleSave() {
     const name = formName.trim();
     if (!name) { Alert.alert('Nom requis', 'Donne un nom a la parcelle.'); return; }
     if (points.length < 3) { Alert.alert('Polygone incomplet', 'Place au moins 3 points.'); return; }
     setSaving(true);
     try {
-      await createParcelle(token, { name, culture: formCulture.trim() || null, surface_ha: Number(computeSurfaceHa(points).toFixed(2)), geometry: points });
-      setFormOpen(false); setDrawMode(false);
+      const parcelle = await createParcelle(token, { name, culture: formCulture.trim() || null, surface_ha: Number(computeSurfaceHa(points).toFixed(2)), geometry: points });
+      if (selectedCapteurIds.length > 0) {
+        await Promise.all(selectedCapteurIds.map((id) => associateCapteur(token, id, parcelle.id)));
+        await loadCapteurs();
+      }
+      setFormOpen(false); setDrawMode(false); setSelectedCapteurIds([]);
       postToMap({ type: 'setDrawMode', value: false });
       postToMap({ type: 'clear' });
       if (onRefresh) await onRefresh();
@@ -175,6 +304,8 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
     setEditingParcelle(parcelle);
     setEditName(parcelle.name);
     setEditCulture(parcelle.culture || '');
+    const currentIds = (capteursByParcelle[parcelle.id] || []).map((c) => c.id);
+    setSelectedCapteurIds(currentIds);
   }
 
   async function handleEditSave() {
@@ -183,7 +314,18 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
     setSaving(true);
     try {
       await updateParcelle(token, editingParcelle.id, { name, culture: editCulture.trim() || null });
+
+      const originalIds = (capteursByParcelle[editingParcelle.id] || []).map((c) => c.id);
+      const toAdd = selectedCapteurIds.filter((id) => !originalIds.includes(id));
+      const toRemove = originalIds.filter((id) => !selectedCapteurIds.includes(id));
+      await Promise.all([
+        ...toAdd.map((id) => associateCapteur(token, id, editingParcelle.id)),
+        ...toRemove.map((id) => associateCapteur(token, id, null)),
+      ]);
+      if (toAdd.length || toRemove.length) await loadCapteurs();
+
       setEditingParcelle(null);
+      setSelectedCapteurIds([]);
       if (onRefresh) await onRefresh();
     } catch (error) {
       Alert.alert('Modification impossible', error.message);
@@ -216,6 +358,13 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
     );
   }
 
+  const surfaceHa = computeSurfaceHa(points);
+  const nbCapteursReco = recommendedCapteurs(surfaceHa);
+  const freeCapteurs = capteursList.filter((c) => !c.parcelle_id);
+  const editCapteurs = editingParcelle
+    ? capteursList.filter((c) => !c.parcelle_id || c.parcelle_id === editingParcelle.id)
+    : freeCapteurs;
+
   return (
     <View style={styles.root}>
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -245,13 +394,14 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
           <Pressable style={styles.drawAction} onPress={() => postToMap({ type: 'clear' })} disabled={!points.length}><Text style={styles.drawActionText}>Effacer</Text></Pressable>
         </View>
         <Pressable style={[styles.saveButton, points.length < 3 ? styles.saveButtonDisabled : null]}
-          onPress={() => { if (points.length < 3) { Alert.alert('Polygone incomplet', 'Place au moins 3 points.'); return; } setFormName(''); setFormCulture(''); setFormOpen(true); }}
+          onPress={() => { if (points.length < 3) { Alert.alert('Polygone incomplet', 'Place au moins 3 points.'); return; } setFormName(''); setFormCulture(''); setSelectedCapteurIds([]); setFormOpen(true); }}
           disabled={points.length < 3}>
           <Text style={styles.saveButtonText}>Enregistrer la parcelle ({points.length} point{points.length > 1 ? 's' : ''})</Text>
         </Pressable>
         <Text style={styles.helper}>Appuie sur la carte pour ajouter un point. Appuie sur un point pour le supprimer.</Text>
       </View>
 
+      {/* Modal création / édition */}
       <Modal
         visible={formOpen || !!editingParcelle}
         transparent
@@ -260,7 +410,7 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
       >
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => { if (!saving) { setFormOpen(false); setEditingParcelle(null); } }} />
-          <View style={styles.modalCard}>
+          <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalCard} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <Text style={styles.modalTitle}>{editingParcelle ? 'Modifier la parcelle' : 'Nouvelle parcelle'}</Text>
 
             <View style={styles.modalField}>
@@ -287,8 +437,32 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
             </View>
 
             {formOpen && !editingParcelle && (
-              <Text style={styles.formHelper}>Surface estimée : {computeSurfaceHa(points).toFixed(2)} ha</Text>
+              <Text style={styles.formHelper}>
+                Surface estimée : {surfaceHa.toFixed(2)} ha &mdash; {nbCapteursReco} capteur{nbCapteursReco > 1 ? 's' : ''} recommandé{nbCapteursReco > 1 ? 's' : ''}
+              </Text>
             )}
+
+            <View style={styles.modalField}>
+              <Text style={styles.formLabel}>Capteurs associés</Text>
+              {editCapteurs.length === 0 ? (
+                <Text style={styles.noCapteurHint}>Aucun capteur disponible. Créez-en dans Compte.</Text>
+              ) : (
+                editCapteurs.map((c) => {
+                  const selected = selectedCapteurIds.includes(c.id);
+                  return (
+                    <Pressable key={c.id} style={[styles.capteurItem, selected && styles.capteurItemSelected]} onPress={() => toggleCapteurSelection(c.id)}>
+                      <View style={[styles.capteurCheck, selected && styles.capteurCheckSelected]}>
+                        {selected && <Text style={styles.capteurCheckMark}>✓</Text>}
+                      </View>
+                      <View>
+                        <Text style={[styles.capteurItemName, selected && styles.capteurItemNameSelected]}>{c.name}</Text>
+                        {c.serial_number ? <Text style={styles.capteurItemSerial}>N° {c.serial_number}</Text> : null}
+                      </View>
+                    </Pressable>
+                  );
+                })
+              )}
+            </View>
 
             <View style={styles.formActions}>
               <Pressable style={[styles.formAction, styles.formActionGhost]} onPress={() => { setFormOpen(false); setEditingParcelle(null); }} disabled={saving}>
@@ -298,7 +472,7 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
                 <Text style={styles.formActionPrimaryText}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Text>
               </Pressable>
             </View>
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -307,6 +481,7 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
       {parcelles.map((parcelle) => {
         const lat = Number(parcelle.latitude);
         const lng = Number(parcelle.longitude);
+        const capteurs = capteursByParcelle[parcelle.id] || [];
         return (
           <View key={parcelle.id} style={styles.card}>
             <View style={styles.cardHeader}>
@@ -317,6 +492,27 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
             {Number.isFinite(lat) && Number.isFinite(lng) && (
               <View style={styles.cardRow}><Text style={styles.cardLabel}>Centre</Text><Text style={styles.cardValue}>{lat.toFixed(4)}, {lng.toFixed(4)}</Text></View>
             )}
+
+            {capteurs.length > 0 && (
+              <View style={styles.capteursSection}>
+                <Text style={styles.capteursSectionTitle}>Capteurs ({capteurs.length})</Text>
+                {capteurs.map((c) => (
+                  <View key={c.id} style={styles.capteurCard}>
+                    <Text style={styles.capteurCardName}>{c.name}</Text>
+                    {c.latest ? (
+                      <View style={styles.capteurVals}>
+                        <View style={styles.capteurVal}><Text style={styles.capteurValLabel}>Temp.</Text><Text style={styles.capteurValValue}>{Number(c.latest.temperature).toFixed(1)}°C</Text></View>
+                        <View style={styles.capteurVal}><Text style={styles.capteurValLabel}>Humid.</Text><Text style={styles.capteurValValue}>{Number(c.latest.humidite).toFixed(1)}%</Text></View>
+                        <View style={styles.capteurVal}><Text style={styles.capteurValLabel}>Pluie</Text><Text style={styles.capteurValValue}>{Number(c.latest.pluviometrie).toFixed(1)} mm</Text></View>
+                      </View>
+                    ) : (
+                      <Text style={styles.capteurNoData}>Aucun relevé disponible</Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+
             <View style={styles.cardActions}>
               <Pressable style={styles.cardActionEdit} onPress={() => openEdit(parcelle)}><Text style={styles.cardActionEditText}>Modifier</Text></Pressable>
               <Pressable style={styles.cardActionDelete} onPress={() => handleDelete(parcelle)}><Text style={styles.cardActionDeleteText}>Supprimer</Text></Pressable>
@@ -352,6 +548,15 @@ const styles = StyleSheet.create({
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#eee7d8', paddingTop: 8 },
   cardLabel: { color: '#677267', fontWeight: '600' },
   cardValue: { color: '#1d2a1e', fontWeight: '700' },
+  capteursSection: { borderTopWidth: 1, borderTopColor: '#eee7d8', paddingTop: 10, gap: 8 },
+  capteursSectionTitle: { color: '#677267', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  capteurCard: { backgroundColor: '#f5f2ea', borderRadius: 12, padding: 10, gap: 6 },
+  capteurCardName: { color: '#21543d', fontWeight: '700', fontSize: 13 },
+  capteurVals: { flexDirection: 'row', gap: 10 },
+  capteurVal: { alignItems: 'center', flex: 1, backgroundColor: '#fffdf8', borderRadius: 8, padding: 6 },
+  capteurValLabel: { color: '#677267', fontSize: 11, fontWeight: '600' },
+  capteurValValue: { color: '#1d2a1e', fontSize: 14, fontWeight: '800' },
+  capteurNoData: { color: '#9aa49a', fontSize: 12, fontStyle: 'italic' },
   drawPanel: { gap: 10 },
   drawButton: { borderWidth: 1, borderColor: '#d9cdb7', backgroundColor: '#fffdf8', borderRadius: 16, paddingVertical: 12, alignItems: 'center' },
   drawButtonActive: { backgroundColor: '#21543d', borderColor: '#21543d' },
@@ -364,12 +569,22 @@ const styles = StyleSheet.create({
   saveButtonDisabled: { backgroundColor: '#d8c4b3' },
   saveButtonText: { color: '#fffaf5', fontWeight: '800' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(29, 42, 30, 0.45)', justifyContent: 'center', paddingHorizontal: 24 },
+  modalScroll: { maxHeight: '85%' },
   modalCard: { backgroundColor: '#fffdf8', borderRadius: 24, padding: 24, gap: 16, borderWidth: 1, borderColor: '#e0d8c7', elevation: 8 },
   modalTitle: { color: '#1d2a1e', fontSize: 20, fontWeight: '800' },
-  modalField: { gap: 6 },
+  modalField: { gap: 8 },
   formLabel: { color: '#677267', fontWeight: '600', fontSize: 13 },
   formInput: { borderWidth: 1, borderColor: '#e0d8c7', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, color: '#1d2a1e', backgroundColor: '#fbf6ea' },
-  formHelper: { color: '#6c776d', fontSize: 13, marginTop: 4 },
+  formHelper: { color: '#21543d', fontSize: 13, fontWeight: '600', marginTop: 2 },
+  noCapteurHint: { color: '#9aa49a', fontSize: 13, fontStyle: 'italic' },
+  capteurItem: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#e0d8c7', backgroundColor: '#fbf6ea' },
+  capteurItemSelected: { borderColor: '#21543d', backgroundColor: '#edf5f0' },
+  capteurCheck: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#d9cdb7', alignItems: 'center', justifyContent: 'center' },
+  capteurCheckSelected: { borderColor: '#21543d', backgroundColor: '#21543d' },
+  capteurCheckMark: { color: '#fffdf8', fontSize: 13, fontWeight: '800' },
+  capteurItemName: { color: '#1d2a1e', fontWeight: '700', fontSize: 14 },
+  capteurItemNameSelected: { color: '#21543d' },
+  capteurItemSerial: { color: '#677267', fontSize: 12 },
   formActions: { flexDirection: 'row', gap: 10, marginTop: 8 },
   formAction: { flex: 1, borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
   formActionGhost: { backgroundColor: '#e8e1d3' },

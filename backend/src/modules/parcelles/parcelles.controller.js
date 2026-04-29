@@ -55,6 +55,15 @@ class ParcellesController {
       res.status(err.status || 500).json({ error: err.message });
     }
   }
+
+  async getCapteurs(req, res) {
+    try {
+      const capteurs = await this.parcellesService.getCapteurs(req.params.id, req.user.id);
+      res.json(capteurs);
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message });
+    }
+  }
 }
 
 module.exports = ParcellesController;

@@ -1,7 +1,8 @@
 class ParcellesRepository {
-  constructor(ParcelleModel, CapteurReleveModel) {
+  constructor(ParcelleModel, CapteurReleveModel, CapteurModel) {
     this.Parcelle = ParcelleModel;
     this.CapteurReleve = CapteurReleveModel;
+    this.Capteur = CapteurModel;
   }
 
   findAllByUser(userId) {
@@ -37,6 +38,20 @@ class ParcellesRepository {
       where: { parcelle_id: parcelleId },
       order: [['timestamp', 'DESC']],
     });
+  }
+
+  async getCapteursWithLatest(parcelleId) {
+    const capteurs = await this.Capteur.findAll({
+      where: { parcelle_id: parcelleId },
+      order: [['name', 'ASC']],
+    });
+    return Promise.all(capteurs.map(async (c) => {
+      const releve = await this.CapteurReleve.findOne({
+        where: { capteur_id: c.id },
+        order: [['timestamp', 'DESC']],
+      });
+      return { ...c.toJSON(), latest: releve ? releve.toJSON() : null };
+    }));
   }
 }
 

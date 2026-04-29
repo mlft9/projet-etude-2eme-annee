@@ -26,6 +26,17 @@ async function start() {
     ALTER TABLE diagnostics DROP CONSTRAINT IF EXISTS diagnostics_parcelle_id_fkey;
     ALTER TABLE diagnostics ADD CONSTRAINT diagnostics_parcelle_id_fkey
       FOREIGN KEY (parcelle_id) REFERENCES parcelles(id) ON DELETE SET NULL;
+
+    CREATE TABLE IF NOT EXISTS capteurs (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      serial_number VARCHAR(255),
+      parcelle_id INTEGER REFERENCES parcelles(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    ALTER TABLE capteurs_releves ADD COLUMN IF NOT EXISTS capteur_id INTEGER REFERENCES capteurs(id) ON DELETE SET NULL;
   `);
   console.log('Schéma DB synchronisé');
 

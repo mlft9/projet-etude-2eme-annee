@@ -76,3 +76,36 @@ export function fetchLatestCapteurs(token, parcelleId) {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+export function fetchCapteursForParcelle(token, parcelleId) {
+  return request(`/parcelles/${parcelleId}/capteurs`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function fetchCapteurs(token) {
+  return request('/capteurs', { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function createCapteur(token, payload) {
+  return request('/capteurs', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteCapteur(token, id) {
+  return request(`/capteurs/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function associateCapteur(token, capteurId, parcelleId) {
+  return request(`/capteurs/${capteurId}/parcelle`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ parcelle_id: parcelleId }),
+  });
+}

@@ -18,22 +18,22 @@ function buildReading() {
 }
 
 async function insertReadings() {
-  const { rows } = await pool.query('SELECT id FROM parcelles');
+  const { rows } = await pool.query('SELECT id, parcelle_id FROM capteurs WHERE parcelle_id IS NOT NULL');
   if (!rows.length) {
-    console.log('[iot] Aucune parcelle en base, attente...');
+    console.log('[iot] Aucun capteur associé à une parcelle, attente...');
     return;
   }
 
-  const queries = rows.map((parcelle) => {
+  const queries = rows.map((capteur) => {
     const reading = buildReading();
     return pool.query(
-      'INSERT INTO capteurs_releves (parcelle_id, temperature, humidite, pluviometrie, timestamp) VALUES ($1, $2, $3, $4, NOW())',
-      [parcelle.id, reading.temperature, reading.humidite, reading.pluviometrie]
+      'INSERT INTO capteurs_releves (capteur_id, parcelle_id, temperature, humidite, pluviometrie, timestamp) VALUES ($1, $2, $3, $4, $5, NOW())',
+      [capteur.id, capteur.parcelle_id, reading.temperature, reading.humidite, reading.pluviometrie]
     );
   });
 
   await Promise.all(queries);
-  console.log(`[iot] Releves inserees: ${rows.length}`);
+  console.log(`[iot] Releves inseres: ${rows.length} capteur(s)`);
 }
 
 let stopped = false;

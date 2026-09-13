@@ -40,6 +40,16 @@ export default function App() {
   const [selectedPlant, setSelectedPlant] = useState(null);
   const [plantBackScreen, setPlantBackScreen] = useState('dashboard');
   const [selectedDiagnostic, setSelectedDiagnostic] = useState(null);
+  
+  // DEMO MODE: Initial documents
+  const [documents, setDocuments] = useState([
+    { id: 1, type: 'terrains', name: 'Bail_Agricole_2024.pdf', format: 'pdf' },
+    { id: 2, type: 'terrains', name: 'Declaration_PAC_2023.pdf', format: 'pdf' },
+    { id: 3, type: 'terrains', name: 'Analyse_Sol_Parcelle_Nord.jpg', format: 'image' },
+    { id: 4, type: 'betail', name: 'Passeport_Bovin_FR123.pdf', format: 'pdf' },
+    { id: 5, type: 'betail', name: 'Carnet_Sanitaire_2024.pdf', format: 'pdf' },
+    { id: 6, type: 'betail', name: 'Ordonnance_Veto_Mars.jpg', format: 'image' }
+  ]);
 
   useEffect(() => {
     if (token) refreshData();
@@ -216,7 +226,7 @@ export default function App() {
       case 'ia-chat':
         return <IAChatScreen user={user} token={token} parcelles={parcelles} diagnostics={diagnostics} onBack={() => setScreen('account')} onOpenPacGenerator={() => setScreen('pac-generator')} />;
       case 'account':
-        return <AccountScreen user={user} token={token} parcelles={parcelles} betail={betail} onLogout={handleLogout} onOpenGestion={() => setScreen('gestion')} onOpenPacGenerator={() => setScreen('pac-generator')} onOpenIAChat={() => setScreen('ia-chat')} />;
+        return <AccountScreen user={user} token={token} parcelles={parcelles} betail={betail} documents={documents} setDocuments={setDocuments} onLogout={handleLogout} onOpenGestion={() => setScreen('gestion')} onOpenPacGenerator={() => setScreen('pac-generator')} onOpenIAChat={() => setScreen('ia-chat')} />;
       default:
         return null;
     }

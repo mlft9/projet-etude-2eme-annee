@@ -12,6 +12,8 @@ export default function AccountScreen({ user, token, parcelles = [], betail = []
   const [saving, setSaving] = useState(false);
   const [galleryModalOpen, setGalleryModalOpen] = useState(false);
   const [galleryType, setGalleryType] = useState(null); // 'terrains' | 'betail'
+  const [addDocModalOpen, setAddDocModalOpen] = useState(false);
+  const [newDocName, setNewDocName] = useState('');
 
   // Barre de navigation (Tabs)
   const [activeTab, setActiveTab] = useState('profil'); // 'profil', 'gestion', 'admin', 'capteurs'
@@ -68,6 +70,24 @@ export default function AccountScreen({ user, token, parcelles = [], betail = []
       ]
     );
   }
+
+  const handleAddDocument = () => {
+    if (!newDocName.trim()) {
+      Alert.alert('Nom requis', 'Veuillez saisir un nom pour le document.');
+      return;
+    }
+    const newDoc = {
+      id: Date.now(),
+      type: galleryType, // Use the currently opened gallery type
+      name: newDocName.trim() + '.pdf',
+      format: 'pdf'
+    };
+    if (setDocuments) {
+      setDocuments(prev => [...prev, newDoc]);
+    }
+    setNewDocName('');
+    setAddDocModalOpen(false);
+  };
 
   const tabs = [
     { id: 'profil', label: 'Profil' },
@@ -138,21 +158,28 @@ export default function AccountScreen({ user, token, parcelles = [], betail = []
             </View>
 
             <View style={styles.safesContainer}>
-              <Pressable style={styles.safeCard} onPress={() => { setGalleryType('terrains'); setGalleryModalOpen(true); }}>
-                <Ionicons name="document-text" size={24} color="#21543d" />
-                <Text style={styles.safeTitle}>Coffre-Fort Terrains</Text>
-                <Text style={styles.safeSub}>Baux, PAC, analyses...</Text>
-                <Pressable style={styles.safeBtn} onPress={() => Alert.alert('Simulation', 'Ouverture du sélecteur de fichiers...')}>
-                  <Text style={styles.safeBtnText}>+ Ajouter doc</Text>
-                </Pressable>
+              <Pressable style={styles.safeCardPremium} onPress={() => { setGalleryType('terrains'); setGalleryModalOpen(true); }}>
+                <View style={styles.safeIconWrapper}>
+                  <Ionicons name="document-text" size={28} color="#fff" />
+                </View>
+                <Text style={styles.safeTitlePremium}>Coffre-Fort Terrains</Text>
+                <Text style={styles.safeSubPremium}>Baux, PAC, analyses...</Text>
+                <View style={styles.safeFooter}>
+                  <Text style={styles.safeFooterText}>{documents ? documents.filter(d => d.type === 'terrains').length : 0} Docs</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#21543d" />
+                </View>
               </Pressable>
-              <Pressable style={styles.safeCard} onPress={() => { setGalleryType('betail'); setGalleryModalOpen(true); }}>
-                <Ionicons name="paw" size={24} color="#21543d" />
-                <Text style={styles.safeTitle}>Coffre-Fort Bétail</Text>
-                <Text style={styles.safeSub}>Passeports, carnets véto...</Text>
-                <Pressable style={styles.safeBtn} onPress={() => Alert.alert('Simulation', 'Ouverture du sélecteur de fichiers...')}>
-                  <Text style={styles.safeBtnText}>+ Ajouter doc</Text>
-                </Pressable>
+              
+              <Pressable style={styles.safeCardPremium} onPress={() => { setGalleryType('betail'); setGalleryModalOpen(true); }}>
+                <View style={[styles.safeIconWrapper, { backgroundColor: '#c96c2d' }]}>
+                  <Ionicons name="paw" size={28} color="#fff" />
+                </View>
+                <Text style={styles.safeTitlePremium}>Coffre-Fort Bétail</Text>
+                <Text style={styles.safeSubPremium}>Passeports, carnets...</Text>
+                <View style={styles.safeFooter}>
+                  <Text style={styles.safeFooterText}>{documents ? documents.filter(d => d.type === 'betail').length : 0} Docs</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#c96c2d" />
+                </View>
               </Pressable>
             </View>
 
@@ -312,22 +339,49 @@ export default function AccountScreen({ user, token, parcelles = [], betail = []
             
             <ScrollView style={{ maxHeight: 300 }}>
               <View style={{ gap: 10 }}>
-                {galleryType === 'terrains' && (
-                  <>
-                    <View style={styles.documentItem}><Ionicons name="document" size={20} color="#21543d" /><Text style={styles.documentText}>Bail_Agricole_2024.pdf</Text></View>
-                    <View style={styles.documentItem}><Ionicons name="document" size={20} color="#21543d" /><Text style={styles.documentText}>Declaration_PAC_2023.pdf</Text></View>
-                    <View style={styles.documentItem}><Ionicons name="image" size={20} color="#21543d" /><Text style={styles.documentText}>Analyse_Sol_Parcelle_Nord.jpg</Text></View>
-                  </>
-                )}
-                {galleryType === 'betail' && (
-                  <>
-                    <View style={styles.documentItem}><Ionicons name="document" size={20} color="#21543d" /><Text style={styles.documentText}>Passeport_Bovin_FR123.pdf</Text></View>
-                    <View style={styles.documentItem}><Ionicons name="document" size={20} color="#21543d" /><Text style={styles.documentText}>Carnet_Sanitaire_2024.pdf</Text></View>
-                    <View style={styles.documentItem}><Ionicons name="image" size={20} color="#21543d" /><Text style={styles.documentText}>Ordonnance_Veto_Mars.jpg</Text></View>
-                  </>
+                {documents && documents.filter(d => d.type === galleryType).map(doc => (
+                  <View key={doc.id} style={styles.documentItem}>
+                    <Ionicons name={doc.format === 'pdf' ? 'document' : 'image'} size={24} color="#21543d" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.documentText} numberOfLines={1}>{doc.name}</Text>
+                      <Text style={{ fontSize: 11, color: '#8a9a8b' }}>Ajouté récemment</Text>
+                    </View>
+                    <Ionicons name="download-outline" size={20} color="#21543d" />
+                  </View>
+                ))}
+                {documents && documents.filter(d => d.type === galleryType).length === 0 && (
+                  <Text style={styles.empty}>Aucun document dans ce coffre.</Text>
                 )}
               </View>
             </ScrollView>
+            
+            <Pressable style={styles.primaryBtn} onPress={() => setAddDocModalOpen(true)}>
+              <Text style={styles.primaryBtnText}>+ Ajouter un document</Text>
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Add Document Modal */}
+      <Modal visible={addDocModalOpen} animationType="fade" transparent>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Nouveau Document</Text>
+            <Text style={styles.sectionSubtitle}>Dans: {galleryType === 'terrains' ? 'Coffre Terrains' : 'Coffre Bétail'}</Text>
+            
+            <View style={[styles.inputGroup, { marginTop: 20 }]}>
+              <Text style={styles.label}>Nom du document</Text>
+              <TextInput style={styles.input} value={newDocName} onChangeText={setNewDocName} placeholder="Ex: Bail 2024" />
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+              <Pressable style={[styles.actionBtn, { flex: 1, backgroundColor: '#fbe9e7' }]} onPress={() => setAddDocModalOpen(false)}>
+                <Text style={[styles.actionBtnText, { color: '#9f2f1f' }]}>Annuler</Text>
+              </Pressable>
+              <Pressable style={[styles.actionBtn, { flex: 1, backgroundColor: '#21543d' }]} onPress={handleAddDocument}>
+                <Text style={[styles.actionBtnText, { color: '#fff' }]}>Enregistrer</Text>
+              </Pressable>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -374,14 +428,17 @@ const styles = StyleSheet.create({
   
   deleteBtn: { padding: 8, backgroundColor: '#fbe9e7', borderRadius: 6 },
   deleteBtnText: { color: '#c93c1f', fontSize: 12, fontWeight: '700' },
-  safesContainer: { flexDirection: 'row', gap: 10, marginTop: 10 },
-  safeCard: { flex: 1, backgroundColor: '#fbf6ea', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#e0d8c7', alignItems: 'center' },
-  safeTitle: { color: '#1d2a1e', fontWeight: '800', fontSize: 14, marginTop: 8, textAlign: 'center' },
-  safeSub: { color: '#8a9a8b', fontSize: 12, textAlign: 'center', marginBottom: 10 },
-  safeBtn: { backgroundColor: '#f2eae1', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, marginTop: 'auto' },
-  safeBtnText: { color: '#21543d', fontWeight: 'bold', fontSize: 12 },
-  documentItem: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: '#f9f6ef', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0' },
-  documentText: { color: '#1d2a1e', fontWeight: '500', flex: 1 },
+  safesContainer: { flexDirection: 'row', gap: 12, marginTop: 10 },
+  safeCardPremium: { flex: 1, backgroundColor: '#fff', padding: 16, borderRadius: 16, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, borderWidth: 1, borderColor: '#f0f0f0' },
+  safeIconWrapper: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#21543d', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  safeTitlePremium: { color: '#1d2a1e', fontWeight: 'bold', fontSize: 15, marginBottom: 4 },
+  safeSubPremium: { color: '#8a9a8b', fontSize: 12, marginBottom: 16 },
+  safeFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f5f5f5' },
+  safeFooterText: { color: '#1d2a1e', fontWeight: '700', fontSize: 13 },
+  documentItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#eee', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2 },
+  documentText: { color: '#1d2a1e', fontWeight: 'bold', fontSize: 14 },
+  primaryBtn: { backgroundColor: '#21543d', padding: 14, borderRadius: 10, alignItems: 'center', marginTop: 16 },
+  primaryBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
 
   dangerButton: { backgroundColor: '#fbe9e7', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 10 },
   dangerButtonText: { color: '#9f2f1f', fontWeight: '800', fontSize: 15 },

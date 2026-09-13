@@ -25,7 +25,12 @@ export function register(payload) {
 }
 
 export function fetchParcelles(token) {
-  return request('/parcelles', { headers: { Authorization: `Bearer ${token}` } });
+  // DEMO MODE: Hardcoded rich dataset
+  return Promise.resolve([
+    { id: 1, name: 'Champ Nord (Blé)', culture: 'Blé d\'hiver', surface_ha: 15, latitude: 43.60, longitude: 1.44 },
+    { id: 2, name: 'Vigne Sud', culture: 'Vigne', surface_ha: 5.5, latitude: 43.58, longitude: 1.45 },
+    { id: 3, name: 'Parcelle Maïs', culture: 'Maïs doux', surface_ha: 12, latitude: 43.62, longitude: 1.42 }
+  ]);
 }
 
 export function createParcelle(token, payload) {
@@ -52,7 +57,12 @@ export function deleteParcelle(token, id) {
 }
 
 export function fetchDiagnostics(token) {
-  return request('/diagnostics', { headers: { Authorization: `Bearer ${token}` } });
+  // DEMO MODE: Hardcoded rich dataset
+  return Promise.resolve([
+    { id: 101, parcelle_id: 1, resultat: 'Rouille jaune', score_confiance: 85, niveau_risque: 'Élevé', created_at: new Date().toISOString() },
+    { id: 102, parcelle_id: 2, resultat: 'Mildiou (début)', score_confiance: 65, niveau_risque: 'Moyen', created_at: new Date(Date.now() - 86400000).toISOString() },
+    { id: 103, parcelle_id: 3, resultat: 'Sain', score_confiance: 95, niveau_risque: 'Aucun', created_at: new Date(Date.now() - 172800000).toISOString() }
+  ]);
 }
 
 export function createDiagnostic(token, payload) {
@@ -116,7 +126,12 @@ export async function fetchSoilHealth(token, parcelleId) {
 }
 
 export function fetchCapteurs(token) {
-  return request('/capteurs', { headers: { Authorization: `Bearer ${token}` } });
+  // DEMO MODE: Hardcoded rich dataset
+  return Promise.resolve([
+    { id: 'c1', name: 'Sonde Temp/Hum - Blé', serial_number: 'SN-001', parcelle_id: 1, latest: { temp: 18, humidite: 45 } },
+    { id: 'c2', name: 'Station Vigne', serial_number: 'SN-002', parcelle_id: 2, latest: { temp: 22, humidite: 60 } },
+    { id: 'c3', name: 'Sonde Maïs (Irrigation)', serial_number: 'SN-003', parcelle_id: 3, latest: { temp: 25, humidite: 30 } }
+  ]);
 }
 
 export function createCapteur(token, payload) {
@@ -140,4 +155,13 @@ export function associateCapteur(token, capteurId, parcelleId) {
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({ parcelle_id: parcelleId }),
   });
+}
+
+// SIMULATION: Dataset B�tail
+export async function fetchBetail(token) {
+  return Promise.resolve([
+    { id: 'b1', type: 'Bovins (Laitiers)', race: 'Prim''Holstein', count: 45, chips: 45, localisation: 'P�turage Nord', coords: { lat: 43.6, lng: 1.4 } },
+    { id: 'b2', type: 'Bovins (Viande)', race: 'Charolaise', count: 20, chips: 20, localisation: '�table Principale', coords: { lat: 43.61, lng: 1.41 } },
+    { id: 'b3', type: 'Ovins', race: 'Lacaune', count: 120, chips: 30, localisation: 'Colline Est', coords: { lat: 43.59, lng: 1.42 } }
+  ]);
 }

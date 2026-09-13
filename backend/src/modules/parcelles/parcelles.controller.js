@@ -64,6 +64,15 @@ class ParcellesController {
       res.status(err.status || 500).json({ error: err.message });
     }
   }
+
+  async getSoilHealth(req, res) {
+    try {
+      const health = await this.parcellesService.getSoilHealth(req.params.id, req.user.id);
+      res.json(health);
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message });
+    }
+  }
 }
 
 module.exports = ParcellesController;

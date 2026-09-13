@@ -16,9 +16,11 @@ import AccountScreen from './src/features/account/screens/AccountScreen';
 import PlantLibraryScreen from './src/features/plants/screens/PlantLibraryScreen';
 import PlantDetailsScreen from './src/features/plants/screens/PlantDetailsScreen';
 import DiagnosticDetailScreen from './src/features/diagnostics/screens/DiagnosticDetailScreen';
-
+import GestionScreen from './src/features/gestion/screens/GestionScreen';
+import PacGeneratorScreen from './src/features/gestion/screens/PacGeneratorScreen';
+import IAChatScreen from './src/features/ia/screens/IAChatScreen';
 import * as ImagePicker from 'expo-image-picker';
-import { fetchParcelles, fetchDiagnostics, createDiagnostic, refineDiagnostic, fetchLatestCapteurs } from './src/shared/services/api';
+import { fetchParcelles, fetchDiagnostics, createDiagnostic, refineDiagnostic, fetchLatestCapteurs, fetchBetail } from './src/shared/services/api';
 
 export default function App() {
   const insets = useSafeAreaInsets();
@@ -29,6 +31,7 @@ export default function App() {
   const [submitting, setSubmitting] = useState(false);
   const [screen, setScreen] = useState('dashboard');
   const [parcelles, setParcelles] = useState([]);
+  const [betail, setBetail] = useState([]);
   const [diagnostics, setDiagnostics] = useState([]);
   const [selectedParcelleId, setSelectedParcelleId] = useState(null);
   const [pendingRefinement, setPendingRefinement] = useState(null);
@@ -46,12 +49,18 @@ export default function App() {
     if (!token) return;
     setRefreshing(true);
     try {
-      const [p, d] = await Promise.all([fetchParcelles(token), fetchDiagnostics(token)]);
+      const [p, d, b] = await Promise.all([fetchParcelles(token), fetchDiagnostics(token), fetchBetail(token)]);
       setParcelles(p);
       setDiagnostics(d);
+      setBetail(b);
       setSelectedParcelleId((curr) => curr || p[0]?.id || null);
     } catch (error) {
-      Alert.alert('Synchronisation impossible', error.message);
+      if (error.message && error.message.toLowerCase().includes('token invalide')) {
+        Alert.alert('Session expirée', 'Veuillez vous reconnecter.');
+        handleLogout();
+      } else {
+        Alert.alert('Synchronisation impossible', error.message);
+      }
     } finally {
       setRefreshing(false);
       setInitialLoading(false);
@@ -62,6 +71,7 @@ export default function App() {
     setScreen('dashboard');
     setInitialLoading(true);
     setParcelles([]);
+    setBetail([]);
     setDiagnostics([]);
     setPendingRefinement(null);
     setDiagnosticResult(null);
@@ -182,11 +192,11 @@ export default function App() {
   function renderScreen() {
     switch (screen) {
       case 'dashboard':
-        return <DashboardScreen user={user} parcelles={parcelles} diagnostics={diagnostics} refreshing={refreshing} onRefresh={refreshData} onViewAllDiagnostics={() => setScreen('diagnostics')} />;
+        return <DashboardScreen user={user} parcelles={parcelles} betail={betail} diagnostics={diagnostics} refreshing={refreshing} onRefresh={refreshData} onViewAllDiagnostics={() => setScreen('diagnostics')} onNavigateToMap={() => setScreen('map')} />;
       case 'map':
-        return <ScrollView contentContainerStyle={styles.mapWrapper}><MapScreen parcelles={parcelles} refreshing={refreshing} onRefresh={refreshData} token={token} /></ScrollView>;
+        return <MapScreen parcelles={parcelles} betail={betail} onAddParcelle={refreshData} />;
       case 'diagnostics':
-        return <DiagnosticsScreen diagnostics={diagnostics} parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} refreshing={refreshing} onRefresh={refreshData} onOpenPlantLibrary={() => openPlantLibrary(null, 'diagnostics')} onViewPlant={(plant) => openPlantLibrary(plant, 'diagnostics')} onOpenDiagnostic={(d) => { setSelectedDiagnostic(d); setScreen('diagnostic-detail'); }} />;
+        return <DiagnosticsScreen diagnostics={diagnostics} parcelles={parcelles} betail={betail} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} refreshing={refreshing} onRefresh={refreshData} onOpenPlantLibrary={() => openPlantLibrary(null, 'diagnostics')} onViewPlant={(plant) => openPlantLibrary(plant, 'diagnostics')} onOpenDiagnostic={(d) => { setSelectedDiagnostic(d); setScreen('diagnostic-detail'); }} />;
       case 'new':
         return <NewDiagnosticScreen parcelles={parcelles} selectedParcelleId={selectedParcelleId} onSelectParcelle={setSelectedParcelleId} onSubmit={handleCreateDiagnostic} submitting={submitting} initialImage={fabImage} onViewPlant={(plant) => openPlantDetails(plant, 'new')} />;
       case 'refine':
@@ -199,8 +209,14 @@ export default function App() {
         return <DiagnosticDetailScreen diagnostic={selectedDiagnostic} token={token} onBack={() => setScreen('diagnostics')} />;
       case 'result':
         return <DiagnosticResultScreen diagnostic={diagnosticResult} onViewAll={() => { setDiagnosticResult(null); setScreen('diagnostics'); }} onGoHome={() => { setDiagnosticResult(null); setScreen('dashboard'); }} />;
+      case 'gestion':
+        return <GestionScreen parcelles={parcelles} onOpenIAChat={() => setScreen('ia-chat')} />;
+      case 'pac-generator':
+        return <PacGeneratorScreen user={user} token={token} parcelles={parcelles} onBack={() => setScreen('account')} />;
+      case 'ia-chat':
+        return <IAChatScreen user={user} token={token} parcelles={parcelles} diagnostics={diagnostics} onBack={() => setScreen('account')} onOpenPacGenerator={() => setScreen('pac-generator')} />;
       case 'account':
-        return <AccountScreen user={user} token={token} onLogout={handleLogout} />;
+        return <AccountScreen user={user} token={token} parcelles={parcelles} betail={betail} onLogout={handleLogout} onOpenGestion={() => setScreen('gestion')} onOpenPacGenerator={() => setScreen('pac-generator')} onOpenIAChat={() => setScreen('ia-chat')} />;
       default:
         return null;
     }
@@ -208,7 +224,7 @@ export default function App() {
 
   const tabs = [
     { key: 'dashboard', icon: 'home', label: 'Accueil' },
-    { key: 'map', icon: 'map', label: 'Parcelles' },
+    { key: 'map', icon: 'map', label: 'Exploitation' },
     { key: 'new', icon: null, label: null },
     { key: 'diagnostics', icon: 'leaf', label: 'Diagnostics' },
     { key: 'account', icon: 'person', label: 'Compte' },
@@ -221,7 +237,7 @@ export default function App() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>Bonjour {user.name}</Text>
-            <Text style={styles.headerTitle}>Pilotage des parcelles</Text>
+            <Text style={styles.headerTitle}>Pilotage de l'exploitation</Text>
           </View>
         </View>
         {renderScreen()}

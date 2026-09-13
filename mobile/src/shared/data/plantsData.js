@@ -255,3 +255,95 @@ export const PLANTS_DATA = {
     ],
   },
 };
+
+export const ANIMALS_DATA = {
+  'Vache laitière': {
+    id: 'vache-laitiere',
+    name: 'Vache laitière',
+    varieties: ['Holstein', 'Normande', 'Montbéliarde', 'Prim Holstein'],
+    description: 'Bovin élevé principalement pour la production de lait.',
+    specificities: [
+      'Gestation de 9 mois.',
+      'Production laitière moyenne de 20 à 35L / jour.',
+      'Sensible au stress thermique (chaleur).',
+    ],
+    needs: {
+      water: 'Besoins en eau très importants (60 à 100L / jour).',
+      soil: 'Pâturage tournant, herbe de qualité, stabulation paillée l\'hiver.',
+      temperature: 'Préférence pour climat tempéré (optimum -5°C à 20°C).',
+      nutrition: 'Ration d\'ensilage, foin, et concentrés riches en énergie et protéines.',
+    },
+    diseases: [
+      {
+        id: 1,
+        name: 'Mammite',
+        symptoms: 'Quartier du pis gonflé, rouge, douloureux, lait coagulé ou grumeleux.',
+        severity: 'Élevé',
+        prevention: 'Hygiène de traite rigoureuse, litière propre et sèche, trempage des trayons.',
+        treatment: 'Antibiotiques intra-mammaires (après avis vétérinaire).',
+      },
+      {
+        id: 2,
+        name: 'Dermatite digitée (Maladie de Mortellaro)',
+        symptoms: 'Lésions ulcéreuses très douloureuses sur la couronne du sabot, boiterie sévère.',
+        severity: 'Élevé',
+        prevention: 'Pédiluves réguliers, raclage fréquent des aires de circulation.',
+        treatment: 'Nettoyage, spray antibiotique ou pansement au cuivre/salicylique.',
+      },
+      {
+        id: 3,
+        name: 'Fièvre de lait (Hypocalcémie)',
+        symptoms: 'Vache couchée, incapacité à se lever après vêlage, extrémités froides.',
+        severity: 'Critique',
+        prevention: 'Gestion de la ration tarie (BACA négative, apport modéré en calcium).',
+        treatment: 'Injection intraveineuse lente de calcium.',
+      },
+    ],
+    pests: [
+      {
+        id: 1,
+        name: 'Mouches (Taons, Stomoxes)',
+        damage: 'Agitation, baisse de production, transmission de maladies.',
+        severity: 'Moyen',
+        prevention: 'Ventilation des bâtiments, gestion des fumiers.',
+        treatment: 'Répulsifs, piégeage, insecticides (pour-on).',
+      }
+    ],
+  },
+  'Mouton': {
+    id: 'mouton',
+    name: 'Mouton',
+    varieties: ['Mérinos', 'Lacaune', 'Texel', 'Charollais'],
+    description: 'Petit ruminant élevé pour la viande, la laine ou le lait.',
+    specificities: [
+      'Comportement grégaire prononcé.',
+      'Sensible aux parasites internes.',
+    ],
+    needs: {
+      water: '5 à 10 L / jour selon le stade.',
+      soil: 'Pâturage de parcours ou prairies artificielles.',
+      temperature: 'Rustique, supporte le froid, mais doit être abrité de l\'humidité.',
+      nutrition: 'Pâturage, foin en hiver, avec minéraux et vitamines.',
+    },
+    diseases: [
+      {
+        id: 1,
+        name: 'Piétin',
+        symptoms: 'Boiterie aiguë, décollement de la corne, odeur nauséabonde.',
+        severity: 'Élevé',
+        prevention: 'Parage régulier, pédiluve au sulfate de zinc, quarantaine.',
+        treatment: 'Parage curatif, bain de pieds, antibiotiques (spray ou injection).',
+      },
+    ],
+    pests: [
+      {
+        id: 1,
+        name: 'Strongles (Parasites gastro-intestinaux)',
+        damage: 'Diarrhée, anémie, amaigrissement, œdème sous-maxillaire.',
+        severity: 'Élevé',
+        prevention: 'Gestion des pâturages, analyse coproscopique.',
+        treatment: 'Anthelminthiques.',
+      },
+    ],
+  },
+};

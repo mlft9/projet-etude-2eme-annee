@@ -12,6 +12,7 @@ module.exports = (sequelize) => {
     conseil: { type: DataTypes.TEXT },
     ia_raw_response: { type: DataTypes.TEXT },
     score_confiance: { type: DataTypes.INTEGER },
+    type_analyse: { type: DataTypes.STRING(50) },
   }, {
     tableName: 'diagnostics',
     timestamps: true,

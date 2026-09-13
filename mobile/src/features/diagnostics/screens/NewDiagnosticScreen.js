@@ -5,6 +5,7 @@ import { API_BASE_URL } from '../../../config';
 
 export default function NewDiagnosticScreen({ parcelles, selectedParcelleId, onSelectParcelle, onSubmit, submitting, initialImage, onViewPlant }) {
   const [selectedImage, setSelectedImage] = useState(initialImage || null);
+  const [context, setContext] = useState('plante'); // 'plante' ou 'animal'
 
   useEffect(() => {
     setSelectedImage(initialImage || null);
@@ -32,15 +33,28 @@ export default function NewDiagnosticScreen({ parcelles, selectedParcelleId, onS
 
   async function handleSubmit() {
     if (!selectedImage?.base64) {
-      Alert.alert('Image requise', "Choisis une photo de feuille ou de plante avant de lancer l'analyse.");
+      Alert.alert('Image requise', "Choisis une photo de feuille, de plante ou d'animal avant de lancer l'analyse.");
       return;
     }
-    await onSubmit({ parcelle_id: selectedParcelleId, image_base64: selectedImage.base64 });
+    await onSubmit({ parcelle_id: selectedParcelleId, image_base64: selectedImage.base64, type_analyse: context });
     setSelectedImage(null);
   }
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Contexte du diagnostic</Text>
+        <View style={styles.contextRow}>
+          <Pressable style={[styles.contextBtn, context === 'plante' && styles.contextBtnActive]} onPress={() => setContext('plante')}>
+            <Text style={[styles.contextText, context === 'plante' && styles.contextTextActive]}>🌱 Culture (Plante)</Text>
+          </Pressable>
+          <Pressable style={[styles.contextBtn, context === 'animal' && styles.contextBtnActive]} onPress={() => setContext('animal')}>
+            <Text style={[styles.contextText, context === 'animal' && styles.contextTextActive]}>🐄 Élevage (Animal)</Text>
+          </Pressable>
+        </View>
+      </View>
+
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Associer la parcelle</Text>
         <View style={styles.pillRow}>
@@ -122,7 +136,12 @@ const styles = StyleSheet.create({
   imageSourceRow: { flexDirection: 'row', gap: 10 },
   imageBtn: { flex: 1, alignItems: 'center' },
   primaryButton: { backgroundColor: '#c96c2d', borderRadius: 16, paddingVertical: 22, alignItems: 'center' },
-  primaryButtonText: { color: '#fffaf5', fontWeight: '800', fontSize: 17 },
+  primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  contextRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  contextBtn: { flex: 1, paddingVertical: 12, backgroundColor: '#f5f5f5', borderRadius: 12, borderWidth: 1, borderColor: '#e0d8c7', alignItems: 'center' },
+  contextBtnActive: { backgroundColor: '#21543d', borderColor: '#21543d' },
+  contextText: { color: '#677267', fontWeight: '600', fontSize: 15 },
+  contextTextActive: { color: '#fffdf8' },
   secondaryButton: { backgroundColor: '#e8e1d3', paddingHorizontal: 20, paddingVertical: 18, borderRadius: 14 },
   secondaryButtonText: { color: '#4d5a4d', fontWeight: '700', fontSize: 16 },
   helperText: { color: '#6c776d', fontSize: 15, lineHeight: 22 },

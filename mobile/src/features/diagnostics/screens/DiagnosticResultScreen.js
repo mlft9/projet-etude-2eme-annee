@@ -32,6 +32,39 @@ export default function DiagnosticResultScreen({ diagnostic, onViewAll, onGoHome
             </Text>
           </View>
         )}
+
+        {(() => {
+          // Calcul de la perte évitée
+          const getBaseValueForCrop = (culture) => {
+            const lower = (culture || 'blé').toLowerCase();
+            if (lower.includes('maïs') || lower.includes('mais')) return 1800;
+            if (lower.includes('vigne')) return 8000;
+            return 1400; // Par défaut (ex: Blé tendre)
+          };
+          
+          const risque = (diagnostic?.niveau_risque || '').toLowerCase();
+          const baseVal = getBaseValueForCrop(diagnostic?.parcelle_culture);
+          let percentage = 0;
+          if (risque.includes('critique') || risque.includes('eleve') || risque.includes('élevé')) percentage = 0.30;
+          else if (risque.includes('moyen') || risque.includes('modere') || risque.includes('modéré')) percentage = 0.15;
+          
+          const avoidedLoss = baseVal * percentage;
+
+          if (avoidedLoss > 0) {
+            return (
+              <View style={[styles.confidenceBlock, { marginTop: 8, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#eee7d8' }]}>
+                <View style={styles.confidenceBarBg}>
+                  <View style={[styles.confidenceBarFill, styles.financeBarOk, { width: '100%' }]} />
+                </View>
+                <Text style={styles.financeLabel}>
+                  Détection précoce : perte potentielle évitée estimée à environ {avoidedLoss.toFixed(0)} €/ha
+                </Text>
+                <Text style={styles.financeInsight}>* Estimation indicative basée sur les moyennes du marché.</Text>
+              </View>
+            );
+          }
+          return null;
+        })()}
       </View>
 
       <View style={styles.card}>
@@ -65,8 +98,11 @@ const styles = StyleSheet.create({
   confidenceBarFill: { height: '100%', borderRadius: 999 },
   confidenceBarOk: { backgroundColor: '#21543d' },
   confidenceBarLow: { backgroundColor: '#c96c2d' },
+  financeBarOk: { backgroundColor: '#53815a' },
   confidenceLabel: { color: '#6c776d', fontSize: 13, fontWeight: '600' },
   confidenceLabelLow: { color: '#c96c2d' },
+  financeLabel: { color: '#1d2a1e', fontSize: 14, fontWeight: '700' },
+  financeInsight: { color: '#8a9a8b', fontSize: 11, fontStyle: 'italic' },
   sectionTitle: { color: '#1d2a1e', fontSize: 18, fontWeight: '800' },
   conseil: { color: '#374238', fontSize: 15, lineHeight: 24 },
   actions: { gap: 10 },

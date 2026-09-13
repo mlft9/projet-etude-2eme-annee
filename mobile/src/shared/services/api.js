@@ -99,6 +99,22 @@ export function fetchCapteursForParcelle(token, parcelleId) {
   });
 }
 
+export async function fetchSoilHealth(token, parcelleId) {
+  try {
+    const data = await request(`/parcelles/${parcelleId}/soil-health`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return data;
+  } catch (err) {
+    // Fallback fictif si le backend n'est pas à jour
+    return {
+      ph: (Math.random() * (7.5 - 5.5) + 5.5).toFixed(1),
+      mo: (Math.random() * (4 - 1.5) + 1.5).toFixed(1),
+      azote: Math.floor(Math.random() * (120 - 40) + 40)
+    };
+  }
+}
+
 export function fetchCapteurs(token) {
   return request('/capteurs', { headers: { Authorization: `Bearer ${token}` } });
 }

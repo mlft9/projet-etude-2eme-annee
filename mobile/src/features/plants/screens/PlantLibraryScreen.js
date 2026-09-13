@@ -1,15 +1,18 @@
+import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { PLANTS_DATA } from '../../../shared/data/plantsData';
+import { PLANTS_DATA, ANIMALS_DATA } from '../../../shared/data/plantsData';
 
 export default function PlantLibraryScreen({ selectedPlant, onBack, onOpenPlantDetails, onOpenCatalog }) {
-  const catalog = Object.values(PLANTS_DATA);
+  const [activeTab, setActiveTab] = useState('cultures'); // 'cultures' ou 'elevage'
+
+  const catalog = activeTab === 'cultures' ? Object.values(PLANTS_DATA) : Object.values(ANIMALS_DATA);
   const normalizedSelected = String(selectedPlant || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-  const selectedPlantData = catalog.find((plant) => {
-    const normalizedName = plant.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const selectedPlantData = catalog.find((item) => {
+    const normalizedName = item.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
     return normalizedName === normalizedSelected;
   });
-  const displayPlants = selectedPlantData ? [selectedPlantData] : catalog;
+  const displayItems = selectedPlantData ? [selectedPlantData] : catalog;
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -19,10 +22,21 @@ export default function PlantLibraryScreen({ selectedPlant, onBack, onOpenPlantD
             <Ionicons name="chevron-back" size={24} color="#21543d" />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Bibliotheque des plantes</Text>
-            <Text style={styles.subtitle}>Catalogue des cultures, maladies, besoins et nuisibles</Text>
+            <Text style={styles.title}>Bibliothèque Agricole</Text>
+            <Text style={styles.subtitle}>Catalogue des cultures, animaux, maladies et besoins</Text>
           </View>
         </View>
+
+        {!selectedPlant && (
+          <View style={styles.tabsRow}>
+            <Pressable style={[styles.tab, activeTab === 'cultures' && styles.tabActive]} onPress={() => setActiveTab('cultures')}>
+              <Text style={[styles.tabText, activeTab === 'cultures' && styles.tabTextActive]}>🌱 Cultures</Text>
+            </Pressable>
+            <Pressable style={[styles.tab, activeTab === 'elevage' && styles.tabActive]} onPress={() => setActiveTab('elevage')}>
+              <Text style={[styles.tabText, activeTab === 'elevage' && styles.tabTextActive]}>🐄 Élevage</Text>
+            </Pressable>
+          </View>
+        )}
 
         {selectedPlant ? (
           <View style={styles.focusBox}>
@@ -37,17 +51,17 @@ export default function PlantLibraryScreen({ selectedPlant, onBack, onOpenPlantD
         ) : null}
       </View>
 
-      {displayPlants.map((plant) => (
-        <View key={plant.id} style={styles.card}>
+      {displayItems.map((item) => (
+        <View key={item.id} style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>{plant.name}</Text>
-            <Text style={styles.varietiesCount}>{plant.varieties.length} varietes</Text>
+            <Text style={styles.cardTitle}>{item.name}</Text>
+            <Text style={styles.varietiesCount}>{item.varieties.length} variétés/races</Text>
           </View>
 
-          <Text style={styles.description}>{plant.description}</Text>
+          <Text style={styles.description}>{item.description}</Text>
 
           <View style={styles.varietiesRow}>
-            {plant.varieties.map((v) => (
+            {item.varieties.map((v) => (
               <View key={v} style={styles.varietyPill}>
                 <Text style={styles.varietyPillText}>{v}</Text>
               </View>
@@ -55,15 +69,15 @@ export default function PlantLibraryScreen({ selectedPlant, onBack, onOpenPlantD
           </View>
 
           <View style={styles.metaRow}>
-            <Text style={styles.metaItem}>Maladies: {plant.diseases.length}</Text>
-            <Text style={styles.metaItem}>Nuisibles: {plant.pests.length}</Text>
+            <Text style={styles.metaItem}>Maladies: {item.diseases.length}</Text>
+            <Text style={styles.metaItem}>{activeTab === 'cultures' ? 'Nuisibles' : 'Parasites'}: {item.pests?.length || 0}</Text>
           </View>
 
           <View style={styles.actionsRow}>
-            <Pressable style={styles.secondaryButton} onPress={() => onOpenPlantDetails(plant.name)}>
-              <Text style={styles.secondaryButtonText}>Voir details</Text>
+            <Pressable style={styles.secondaryButton} onPress={() => onOpenPlantDetails(item.name)}>
+              <Text style={styles.secondaryButtonText}>Voir détails</Text>
             </Pressable>
-            <Pressable style={styles.primaryButton} onPress={() => onOpenPlantDetails(plant.name)}>
+            <Pressable style={styles.primaryButton} onPress={() => onOpenPlantDetails(item.name)}>
               <Text style={styles.primaryButtonText}>Questionner IA</Text>
             </Pressable>
           </View>
@@ -98,7 +112,12 @@ const styles = StyleSheet.create({
   metaItem: { color: '#4f614f', fontWeight: '700' },
   actionsRow: { flexDirection: 'row', gap: 10 },
   secondaryButton: { flex: 1, backgroundColor: '#ece3d5', borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
-  secondaryButtonText: { color: '#435241', fontWeight: '700' },
-  primaryButton: { flex: 1, backgroundColor: '#c96c2d', borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  secondaryButtonText: { color: '#4d5a4d', fontWeight: '800' },
+  primaryButton: { flex: 1, backgroundColor: '#21543d', borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
   primaryButtonText: { color: '#fffdf8', fontWeight: '800' },
+  tabsRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: '#f0ebd8', borderRadius: 10 },
+  tabActive: { backgroundColor: '#21543d' },
+  tabText: { color: '#677267', fontWeight: '700', fontSize: 15 },
+  tabTextActive: { color: '#fffdf8' },
 });

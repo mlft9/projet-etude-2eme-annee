@@ -49,7 +49,17 @@ class AiProvider {
     this.hasAzure = hasUsableValue(process.env.AZURE_OPENAI_KEY) && hasUsableValue(process.env.AZURE_OPENAI_ENDPOINT);
   }
 
-  _buildMockResponse() {
+  _buildMockResponse(type) {
+    if (type === 'animal') {
+      const mock = {
+        maladie: 'Boiterie (dermatite digitée probable)',
+        niveau_risque: 'Modéré',
+        conseil: 'Vérifier les onglons, isoler l animal si boiterie sévère et faire un parage.',
+        score_confiance: 42,
+      };
+      return { ...mock, raw: JSON.stringify(mock) };
+    }
+
     const mock = {
       maladie: 'Stress hydrique probable',
       niveau_risque: 'Modéré',
@@ -59,11 +69,22 @@ class AiProvider {
     return { ...mock, raw: JSON.stringify(mock) };
   }
 
-  _buildMockRefinedResponse(sensors) {
+  _buildMockRefinedResponse(sensors, type) {
+    if (type === 'animal') {
+      const isFever = sensors && sensors.temperature > 39;
+      const mock = {
+        maladie: isFever ? 'Boiterie avec infection systémique' : 'Boiterie localisée confirmée',
+        niveau_risque: isFever ? 'Élevé' : 'Modéré',
+        conseil: isFever ? 'Consultation vétérinaire urgente recommandée (fièvre détectée).' : 'Parage et pédiluve recommandés.',
+        score_confiance: 88,
+      };
+      return { ...mock, raw: JSON.stringify(mock) };
+    }
+
     const mock = {
       maladie: 'Stress hydrique confirmé',
-      niveau_risque: sensors.humidite < 40 ? 'Élevé' : 'Modéré',
-      conseil: `Irrigation recommandée. Humidité capteur à ${sensors.humidite}% — seuil critique à 40%.`,
+      niveau_risque: sensors && sensors.humidite < 40 ? 'Élevé' : 'Modéré',
+      conseil: `Irrigation recommandée. Humidité capteur à ${sensors ? sensors.humidite : '??'}% — seuil critique à 40%.`,
       score_confiance: 88,
     };
     return { ...mock, raw: JSON.stringify(mock) };
@@ -119,23 +140,23 @@ class AiProvider {
     return { ...parsed, raw };
   }
 
-  async analyzeImage(imageBase64) {
-    if (!this.hasAzure) return this._buildMockResponse();
+  async analyzeImage(imageBase64, type = 'plante') {
+    if (!this.hasAzure) return this._buildMockResponse(type);
     try {
       return await this._analyze(PROMPT_IMAGE, imageBase64);
     } catch (err) {
       console.error('[AiProvider] error, fallback mock:', err.message);
-      return this._buildMockResponse();
+      return this._buildMockResponse(type);
     }
   }
 
-  async analyzeWithSensors(imageBase64, sensors) {
-    if (!this.hasAzure) return this._buildMockRefinedResponse(sensors);
+  async analyzeWithSensors(imageBase64, sensors, type = 'plante') {
+    if (!this.hasAzure) return this._buildMockRefinedResponse(sensors, type);
     try {
       return await this._analyze(buildSensorPrompt(sensors), imageBase64);
     } catch (err) {
       console.error('[AiProvider] sensor analysis error, fallback mock:', err.message);
-      return this._buildMockRefinedResponse(sensors);
+      return this._buildMockRefinedResponse(sensors, type);
     }
   }
 

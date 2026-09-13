@@ -3,25 +3,42 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import RiskBadge from '../components/RiskBadge';
 
 export default function RefinementScreen({ diagnostic, initialCapteurs, submitting, onRefine, onSkip }) {
+  const isAnimal = diagnostic?.type_analyse === 'animal';
+
   const [temperature, setTemperature] = useState(
-    initialCapteurs?.temperature != null ? String(initialCapteurs.temperature) : ''
+    !isAnimal && initialCapteurs?.temperature != null ? String(initialCapteurs.temperature) : ''
   );
   const [humidite, setHumidite] = useState(
-    initialCapteurs?.humidite != null ? String(initialCapteurs.humidite) : ''
+    !isAnimal && initialCapteurs?.humidite != null ? String(initialCapteurs.humidite) : ''
   );
   const [pluviometrie, setPluviometrie] = useState(
-    initialCapteurs?.pluviometrie != null ? String(initialCapteurs.pluviometrie) : ''
+    !isAnimal && initialCapteurs?.pluviometrie != null ? String(initialCapteurs.pluviometrie) : ''
   );
 
+  // Champs animal
+  const [animalTemp, setAnimalTemp] = useState('');
+  const [comportement, setComportement] = useState('');
+  const [appetit, setAppetit] = useState('');
+
   function handleRefine() {
-    onRefine({
-      temperature: parseFloat(temperature),
-      humidite: parseFloat(humidite),
-      pluviometrie: parseFloat(pluviometrie),
-    });
+    if (isAnimal) {
+      onRefine({
+        temperature: parseFloat(animalTemp) || 0,
+        comportement: comportement || 'Normal',
+        appetit: appetit || 'Normal',
+      });
+    } else {
+      onRefine({
+        temperature: parseFloat(temperature),
+        humidite: parseFloat(humidite),
+        pluviometrie: parseFloat(pluviometrie),
+      });
+    }
   }
 
-  const canRefine = temperature !== '' && humidite !== '' && pluviometrie !== '';
+  const canRefine = isAnimal 
+    ? animalTemp !== '' && comportement !== '' && appetit !== ''
+    : temperature !== '' && humidite !== '' && pluviometrie !== '';
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -29,7 +46,7 @@ export default function RefinementScreen({ diagnostic, initialCapteurs, submitti
         <Text style={styles.alertTitle}>Score de confiance faible</Text>
         <Text style={styles.alertBody}>
           L'IA est sûre à {diagnostic.score_confiance}% basé sur l'image seule. Confirme ou ajuste les
-          valeurs capteurs pour affiner le diagnostic.
+          {isAnimal ? " observations de l'animal " : " valeurs capteurs "} pour affiner le diagnostic.
         </Text>
       </View>
 
@@ -43,50 +60,92 @@ export default function RefinementScreen({ diagnostic, initialCapteurs, submitti
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Données capteurs parcelle</Text>
-        <Text style={styles.hint}>Valeurs récupérées depuis le simulateur IoT — tu peux les corriger.</Text>
+        <Text style={styles.sectionTitle}>{isAnimal ? 'Observations Animal' : 'Données capteurs parcelle'}</Text>
+        <Text style={styles.hint}>
+          {isAnimal ? 'Renseigne les constantes et observations pour aider le diagnostic.' : 'Valeurs récupérées depuis le simulateur IoT — tu peux les corriger.'}
+        </Text>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Température sol (°C)</Text>
-          <TextInput
-            style={styles.input}
-            value={temperature}
-            onChangeText={setTemperature}
-            keyboardType="decimal-pad"
-            placeholder="ex : 22.5"
-            placeholderTextColor="#aaa"
-          />
-        </View>
+        {isAnimal ? (
+          <>
+            <View style={styles.field}>
+              <Text style={styles.label}>Température corporelle (°C)</Text>
+              <TextInput
+                style={styles.input}
+                value={animalTemp}
+                onChangeText={setAnimalTemp}
+                keyboardType="decimal-pad"
+                placeholder="ex : 39.5"
+                placeholderTextColor="#aaa"
+              />
+            </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Humidité sol (%)</Text>
-          <TextInput
-            style={styles.input}
-            value={humidite}
-            onChangeText={setHumidite}
-            keyboardType="decimal-pad"
-            placeholder="ex : 65"
-            placeholderTextColor="#aaa"
-          />
-        </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Symptômes / Comportement</Text>
+              <TextInput
+                style={styles.input}
+                value={comportement}
+                onChangeText={setComportement}
+                placeholder="ex : Boiterie, abattement..."
+                placeholderTextColor="#aaa"
+              />
+            </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Pluviométrie récente (mm)</Text>
-          <TextInput
-            style={styles.input}
-            value={pluviometrie}
-            onChangeText={setPluviometrie}
-            keyboardType="decimal-pad"
-            placeholder="ex : 5.2"
-            placeholderTextColor="#aaa"
-          />
-        </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Appétit</Text>
+              <TextInput
+                style={styles.input}
+                value={appetit}
+                onChangeText={setAppetit}
+                placeholder="ex : Diminué, nul, normal"
+                placeholderTextColor="#aaa"
+              />
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.field}>
+              <Text style={styles.label}>Température sol (°C)</Text>
+              <TextInput
+                style={styles.input}
+                value={temperature}
+                onChangeText={setTemperature}
+                keyboardType="decimal-pad"
+                placeholder="ex : 22.5"
+                placeholderTextColor="#aaa"
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Humidité sol (%)</Text>
+              <TextInput
+                style={styles.input}
+                value={humidite}
+                onChangeText={setHumidite}
+                keyboardType="decimal-pad"
+                placeholder="ex : 65"
+                placeholderTextColor="#aaa"
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Pluviométrie récente (mm)</Text>
+              <TextInput
+                style={styles.input}
+                value={pluviometrie}
+                onChangeText={setPluviometrie}
+                keyboardType="decimal-pad"
+                placeholder="ex : 5.2"
+                placeholderTextColor="#aaa"
+              />
+            </View>
+          </>
+        )}
       </View>
 
       <Pressable style={[styles.primaryButton, (!canRefine || submitting) && styles.disabled]} onPress={handleRefine} disabled={!canRefine || submitting}>
         {submitting
           ? <ActivityIndicator color="#fffaf5" />
-          : <Text style={styles.primaryButtonText}>Affiner le diagnostic avec les capteurs</Text>
+          : <Text style={styles.primaryButtonText}>{isAnimal ? 'Affiner avec ces observations' : 'Affiner le diagnostic avec les capteurs'}</Text>
         }
       </Pressable>
 

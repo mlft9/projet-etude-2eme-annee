@@ -4,6 +4,13 @@ import * as Location from 'expo-location';
 import { createParcelle, updateParcelle, deleteParcelle, fetchCapteurs, associateCapteur, fetchCapteursForParcelle } from '../../../shared/services/api';
 import { normalizePolygon, computeSurfaceHa } from '../../../shared/utils/geo';
 import CultureBadge from '../components/CultureBadge';
+import { fetchIrrigationForecast } from '../../../shared/services/weather';
+import { calculateWaterStressRisk } from '../utils/irrigationLogic';
+import { analyzeClimateRisk, analyzeFireRisk } from '../utils/climateLogic';
+import IrrigationRefinementModal from '../components/IrrigationRefinementModal';
+import RiskBadge from '../../diagnostics/components/RiskBadge';
+import { PLANTS_DATA } from '../../../shared/data/plantsData';
+import { Ionicons } from '@expo/vector-icons';
 
 let WebView;
 if (Platform.OS !== 'web') {
@@ -30,9 +37,43 @@ function buildLeafletHtml({ center, savedPolygons }) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-      html, body, #map { height: 100%; margin: 0; padding: 0; }
-      body { background: #fffdf8; }
-      .capteur-popup { font-family: sans-serif; font-size: 13px; min-width: 160px; }
+      html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, sans-serif; }
+      #map { width: 100vw; height: 100vh; }
+      #map-filter { position: absolute; inset: 0; z-index: 500; pointer-events: none; transition: background-color 0.3s; overflow: hidden; }
+      .leaflet-control-attribution { display: none; }
+      
+      .cloud-layer {
+        position: absolute;
+        width: 300%;
+        height: 300%;
+        top: -100%;
+        left: -100%;
+        background-image: 
+          radial-gradient(circle at 50% 50%, rgba(255,255,255,0.8) 0%, transparent 40%),
+          radial-gradient(circle at 20% 30%, rgba(255,255,255,0.7) 0%, transparent 50%),
+          radial-gradient(circle at 80% 70%, rgba(255,255,255,0.6) 0%, transparent 35%);
+        background-size: 300px 300px;
+        opacity: 0.5;
+        z-index: 450;
+        pointer-events: none;
+        animation: wind 40s linear infinite;
+      }
+      @keyframes wind {
+        from { transform: translate(0, 0); }
+        to { transform: translate(1500px, 1500px); }
+      }
+      
+      .fire-marker {
+        background: radial-gradient(circle, rgba(255,80,0,1) 0%, rgba(255,30,0,0.8) 40%, rgba(255,0,0,0) 70%);
+        border-radius: 50%;
+        animation: pulseFire 1.5s infinite alternate;
+      }
+      @keyframes pulseFire {
+        0% { transform: scale(0.8); opacity: 0.9; }
+        100% { transform: scale(1.4); opacity: 0.3; }
+      }
+
+      .capteur-popup { font-family: -apple-system, sans-serif; font-size: 13px; min-width: 160px; }
       .capteur-popup h3 { margin: 0 0 4px; font-size: 15px; color: #1d2a1e; }
       .capteur-popup .meta { color: #677267; margin-bottom: 6px; }
       .capteur-popup hr { border: none; border-top: 1px solid #e0d8c7; margin: 6px 0; }
@@ -44,6 +85,7 @@ function buildLeafletHtml({ center, savedPolygons }) {
   </head>
   <body>
     <div id="map"></div>
+    <div id="map-filter"></div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
       var map = L.map('map').setView([${center.latitude}, ${center.longitude}], ${center.zoom});
@@ -51,6 +93,33 @@ function buildLeafletHtml({ center, savedPolygons }) {
 
       var savedLayer = L.layerGroup().addTo(map);
       var savedPolygons = ${JSON.stringify(savedPolygons || [])};
+      
+      var mapLayerMode = 'standard';
+      var alertsByParcelle = {};
+
+      function refreshPolygonStyles() {
+        savedLayer.eachLayer(function(layer) {
+          if (layer.options && layer.options.parcelleId) {
+            var alert = alertsByParcelle[layer.options.parcelleId];
+            var baseColor = '#21543d';
+            var fillOp = 0.2;
+            
+            if (mapLayerMode === 'climat') {
+              fillOp = 0.4;
+              if (alert === 'gel') baseColor = '#1d6fe5';
+              else if (alert === 'canicule') baseColor = '#9f2f1f';
+              else baseColor = '#53815a'; // Vert ok
+            } else if (mapLayerMode === 'incendie') {
+              fillOp = 0.5;
+              if (alert === 'incendie_critique') baseColor = '#c93c1f';
+              else if (alert === 'incendie_eleve') baseColor = '#c96c2d';
+              else baseColor = '#53815a'; // Vert ok
+            }
+            
+            layer.setStyle({ color: baseColor, fillColor: baseColor, fillOpacity: fillOp });
+          }
+        });
+      }
 
       savedPolygons.forEach(function (poly) {
         var coords = poly.points.map(function (p) { return [p.lat, p.lng]; });
@@ -83,7 +152,7 @@ function buildLeafletHtml({ center, savedPolygons }) {
         }
         popupHtml += '</div>';
 
-        L.polygon(coords, { color: '#21543d', fillColor: '#21543d', fillOpacity: 0.2, weight: 2 })
+        L.polygon(coords, { color: '#21543d', fillColor: '#21543d', fillOpacity: 0.2, weight: 2, parcelleId: poly.id })
           .addTo(savedLayer)
           .bindPopup(popupHtml, { maxWidth: 260 });
 
@@ -144,6 +213,8 @@ function buildLeafletHtml({ center, savedPolygons }) {
         send({ type: 'pointsChanged', points: points.map(function (p) { return { lat: p[0], lng: p[1] }; }) });
       });
 
+      var currentOverlay = null;
+
       function handleHostMessage(event) {
         try {
           var data = JSON.parse(event.data);
@@ -152,6 +223,49 @@ function buildLeafletHtml({ center, savedPolygons }) {
           if (data.type === 'clear') { points = []; refreshPolygon(); refreshPointMarkers(); send({ type: 'pointsChanged', points: [] }); }
           if (data.type === 'removePoint' && typeof data.index === 'number') { points.splice(data.index, 1); refreshPolygon(); refreshPointMarkers(); send({ type: 'pointsChanged', points: points.map(function (p) { return { lat: p[0], lng: p[1] }; }) }); }
           if (data.type === 'centerOn') { map.setView([data.lat, data.lng], data.zoom || 14); if (userMarker) map.removeLayer(userMarker); userMarker = L.circleMarker([data.lat, data.lng], { radius: 8, color: '#1d6fe5', fillColor: '#1d6fe5', fillOpacity: 0.85, weight: 3 }).addTo(map).bindPopup('Vous etes ici'); }
+          if (data.type === 'setMapLayer') {
+            mapLayerMode = data.layer;
+            refreshPolygonStyles();
+            
+            var filter = document.getElementById('map-filter');
+            filter.innerHTML = ''; // Clear previous simulated layers
+            
+            if (mapLayerMode === 'climat') {
+              filter.style.backgroundColor = 'rgba(29, 111, 229, 0.2)';
+              var cloudDiv = document.createElement('div');
+              cloudDiv.className = 'cloud-layer';
+              filter.appendChild(cloudDiv);
+            } else if (mapLayerMode === 'incendie') {
+              filter.style.backgroundColor = 'rgba(201, 60, 31, 0.25)';
+            } else {
+              filter.style.backgroundColor = 'transparent';
+            }
+            
+            if (currentOverlay) { 
+              if (Array.isArray(currentOverlay)) {
+                currentOverlay.forEach(function(m) { map.removeLayer(m); });
+              } else {
+                map.removeLayer(currentOverlay);
+              }
+              currentOverlay = null; 
+            }
+            
+            if (mapLayerMode === 'incendie') {
+              var markers = [];
+              var fireIcon = L.divIcon({ className: 'fire-marker', iconSize: [40, 40] });
+              savedPolygons.forEach(function(poly) {
+                 var coords = poly.points;
+                 if(coords && coords.length > 0) {
+                   var centLat = coords.reduce(function(s, c) { return s + parseFloat(c.lat); }, 0) / coords.length;
+                   var centLng = coords.reduce(function(s, c) { return s + parseFloat(c.lng); }, 0) / coords.length;
+                   markers.push(L.marker([centLat + 0.002, centLng + 0.002], { icon: fireIcon }).addTo(map));
+                   markers.push(L.marker([centLat - 0.001, centLng - 0.003], { icon: fireIcon }).addTo(map));
+                 }
+              });
+              currentOverlay = markers;
+            }
+          }
+          if (data.type === 'setAlerts') { alertsByParcelle = data.alerts; refreshPolygonStyles(); }
         } catch (err) {}
       }
 
@@ -167,6 +281,17 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
   const [capteursList, setCapteursList] = useState([]);
   const [capteursByParcelle, setCapteursByParcelle] = useState({});
   const [selectedCapteurIds, setSelectedCapteurIds] = useState([]);
+  
+  // Nouveaux states pour l'irrigation
+  const [activeTabs, setActiveTabs] = useState({}); // parcelle_id -> 'general' | 'irrigation'
+  const [weatherData, setWeatherData] = useState({}); // parcelle_id -> weather forecast data
+  const [manualPrecip, setManualPrecip] = useState({}); // parcelle_id -> manual precipitation mm
+  const [refinementOpen, setRefinementOpen] = useState(null); // parcelle_id
+  
+  // Nouveau state pour la santé du sol (Phase 3)
+  const [soilHealthByParcelle, setSoilHealthByParcelle] = useState({}); // parcelle_id -> soil health data
+
+  const [mapLayer, setMapLayer] = useState('standard'); // 'standard' | 'climat' | 'incendie'
 
   const [drawMode, setDrawMode] = useState(false);
   const [points, setPoints] = useState([]);
@@ -193,6 +318,7 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
     loadCapteurs();
     if (!parcelles.length) return;
     loadCapteursByParcelle();
+    loadSoilHealth();
   }, [parcelles]);
 
   async function loadCapteurs() {
@@ -215,6 +341,23 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
         })
       );
       setCapteursByParcelle(Object.fromEntries(results));
+    } catch {}
+  }
+
+  async function loadSoilHealth() {
+    try {
+      const { fetchSoilHealth } = require('../../../shared/services/api');
+      const results = await Promise.all(
+        parcelles.map(async (p) => {
+          try {
+            const health = await fetchSoilHealth(token, p.id);
+            return [p.id, health];
+          } catch {
+            return [p.id, null];
+          }
+        })
+      );
+      setSoilHealthByParcelle(Object.fromEntries(results.filter(r => r[1] !== null)));
     } catch {}
   }
 
@@ -281,6 +424,38 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
       if (data.type === 'pointsChanged') setPoints(Array.isArray(data.points) ? data.points : []);
     } catch {}
   }
+
+  // Pre-load all weather for map layer when switching to climat or incendie mode
+  useEffect(() => {
+    if (mapLayer === 'climat' || mapLayer === 'incendie') {
+      parcelles.forEach(p => {
+        if (!weatherData[p.id]) loadWeatherForParcelle(p);
+      });
+    }
+  }, [mapLayer, parcelles]);
+
+  // Push alerts to map whenever weatherData changes or layer changes
+  useEffect(() => {
+    if (mapReadyRef.current) {
+      const alerts = {};
+      Object.keys(weatherData).forEach(id => {
+        if (mapLayer === 'climat') {
+          const risk = analyzeClimateRisk(weatherData[id]);
+          if (risk.length > 0) alerts[id] = risk[0].type;
+        } else if (mapLayer === 'incendie') {
+          const capteurs = capteursByParcelle[id] || [];
+          let soilHum = null;
+          if (capteurs.length > 0 && capteurs[0].latest) {
+             soilHum = capteurs[0].latest.humidite;
+          }
+          const risk = analyzeFireRisk(weatherData[id], soilHum);
+          if (risk.length > 0) alerts[id] = risk[0].type;
+        }
+      });
+      postToMap({ type: 'setAlerts', alerts });
+      postToMap({ type: 'setMapLayer', layer: mapLayer });
+    }
+  }, [weatherData, mapLayer, capteursByParcelle]);
 
   function toggleDrawMode() {
     setDrawMode((curr) => { const next = !curr; postToMap({ type: 'setDrawMode', value: next }); return next; });
@@ -372,6 +547,21 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
     );
   }
 
+  async function loadWeatherForParcelle(parcelle) {
+    if (weatherData[parcelle.id]) return;
+    const data = await fetchIrrigationForecast(parcelle.latitude, parcelle.longitude);
+    if (data) {
+      setWeatherData((prev) => ({ ...prev, [parcelle.id]: data }));
+    }
+  }
+
+  function handleTabChange(parcelle, tab) {
+    setActiveTabs((prev) => ({ ...prev, [parcelle.id]: tab }));
+    if (tab === 'irrigation' && Number.isFinite(Number(parcelle.latitude)) && Number.isFinite(Number(parcelle.longitude))) {
+      loadWeatherForParcelle(parcelle);
+    }
+  }
+
   const surfaceHa = computeSurfaceHa(points);
   const nbCapteursReco = recommendedCapteurs(surfaceHa);
   const freeCapteurs = capteursList.filter((c) => !c.parcelle_id);
@@ -383,7 +573,7 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
     <View style={styles.root}>
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Parcelles</Text>
+        <Text style={styles.title}>Exploitation</Text>
         <Pressable onPress={onRefresh} disabled={refreshing}>
           <Text style={styles.action}>{refreshing ? 'Actualisation...' : 'Actualiser'}</Text>
         </Pressable>
@@ -399,20 +589,38 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
         )}
       </View>
 
+      <View style={styles.layerPanel}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.layerScroll}>
+          <Pressable style={[styles.layerButton, mapLayer === 'standard' && styles.layerButtonActive]} onPress={() => setMapLayer('standard')}>
+            <Text style={[styles.layerButtonText, mapLayer === 'standard' && styles.layerButtonTextActive]}>Classique</Text>
+          </Pressable>
+          <Pressable style={[styles.layerButton, mapLayer === 'climat' && styles.layerButtonActive]} onPress={() => setMapLayer('climat')}>
+            <Text style={[styles.layerButtonText, mapLayer === 'climat' && styles.layerButtonTextActive]}>Climat</Text>
+          </Pressable>
+          <Pressable style={[styles.layerButton, mapLayer === 'incendie' && styles.layerButtonActive]} onPress={() => setMapLayer('incendie')}>
+            <Text style={[styles.layerButtonText, mapLayer === 'incendie' && styles.layerButtonTextActive]}>Incendie</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+
       <View style={styles.drawPanel}>
         <Pressable style={[styles.drawButton, drawMode ? styles.drawButtonActive : null]} onPress={toggleDrawMode}>
           <Text style={[styles.drawButtonText, drawMode ? styles.drawButtonTextActive : null]}>{drawMode ? 'Mode dessin actif' : 'Mode dessin'}</Text>
         </Pressable>
-        <View style={styles.drawActionsRow}>
-          <Pressable style={styles.drawAction} onPress={() => postToMap({ type: 'undo' })} disabled={!points.length}><Text style={styles.drawActionText}>Annuler point</Text></Pressable>
-          <Pressable style={styles.drawAction} onPress={() => postToMap({ type: 'clear' })} disabled={!points.length}><Text style={styles.drawActionText}>Effacer</Text></Pressable>
-        </View>
-        <Pressable style={[styles.saveButton, points.length < 3 ? styles.saveButtonDisabled : null]}
-          onPress={() => { if (points.length < 3) { Alert.alert('Polygone incomplet', 'Place au moins 3 points.'); return; } setFormName(''); setFormCulture(''); setSelectedCapteurIds([]); setFormOpen(true); }}
-          disabled={points.length < 3}>
-          <Text style={styles.saveButtonText}>Enregistrer la parcelle ({points.length} point{points.length > 1 ? 's' : ''})</Text>
-        </Pressable>
-        <Text style={styles.helper}>Appuie sur la carte pour ajouter un point. Appuie sur un point pour le supprimer.</Text>
+        {drawMode && (
+          <View style={styles.drawControls}>
+            <View style={styles.drawActionsRow}>
+              <Pressable style={styles.drawAction} onPress={() => postToMap({ type: 'undo' })} disabled={!points.length}><Text style={styles.drawActionText}>Annuler point</Text></Pressable>
+              <Pressable style={styles.drawAction} onPress={() => postToMap({ type: 'clear' })} disabled={!points.length}><Text style={styles.drawActionText}>Effacer</Text></Pressable>
+            </View>
+            <Pressable style={[styles.saveButton, points.length < 3 ? styles.saveButtonDisabled : null]}
+              onPress={() => { if (points.length < 3) { Alert.alert('Polygone incomplet', 'Place au moins 3 points.'); return; } setFormName(''); setFormCulture(''); setSelectedCapteurIds([]); setFormOpen(true); }}
+              disabled={points.length < 3}>
+              <Text style={styles.saveButtonText}>Enregistrer le secteur ({points.length} point{points.length > 1 ? 's' : ''})</Text>
+            </Pressable>
+            <Text style={styles.helper}>Appuie sur la carte pour ajouter un point. Appuie sur un point pour le supprimer.</Text>
+          </View>
+        )}
       </View>
 
       {/* Modal création / édition */}
@@ -425,7 +633,7 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => { if (!saving) { setFormOpen(false); setEditingParcelle(null); } }} />
           <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalCard} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <Text style={styles.modalTitle}>{editingParcelle ? 'Modifier la parcelle' : 'Nouvelle parcelle'}</Text>
+            <Text style={styles.modalTitle}>{editingParcelle ? 'Modifier le secteur' : 'Nouveau secteur'}</Text>
 
             <View style={styles.modalField}>
               <Text style={styles.formLabel}>Nom</Text>
@@ -440,12 +648,12 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
             </View>
 
             <View style={styles.modalField}>
-              <Text style={styles.formLabel}>Culture (optionnel)</Text>
+              <Text style={styles.formLabel}>Culture ou Élevage</Text>
               <TextInput
                 style={styles.formInput}
                 value={editingParcelle ? editCulture : formCulture}
                 onChangeText={editingParcelle ? setEditCulture : setFormCulture}
-                placeholder="Ex: Blé tendre"
+                placeholder="Ex: Blé tendre, Bovins..."
                 placeholderTextColor="#9aa49a"
               />
             </View>
@@ -490,51 +698,216 @@ export default function MapScreen({ parcelles, refreshing, onRefresh, token }) {
         </KeyboardAvoidingView>
       </Modal>
 
-      {parcelles.length === 0 && <Text style={styles.empty}>Aucune parcelle enregistree.</Text>}
+      {parcelles.length === 0 && <Text style={styles.empty}>Aucun secteur enregistré.</Text>}
 
       {parcelles.map((parcelle) => {
         const lat = Number(parcelle.latitude);
         const lng = Number(parcelle.longitude);
         const capteurs = capteursByParcelle[parcelle.id] || [];
+        const activeTab = activeTabs[parcelle.id] || 'general';
+
+        // Logique d'irrigation
+        const weather = weatherData[parcelle.id];
+        let waterRisk = 'Inconnu';
+        let forecastPrecip = 0;
+        let soilHum = null;
+
+        if (weather && weather.precipitation_sum) {
+          forecastPrecip = weather.precipitation_sum.reduce((a, b) => a + b, 0);
+        }
+        if (capteurs.length > 0 && capteurs[0].latest) {
+          soilHum = capteurs[0].latest.humidite;
+        }
+
+        if (weather) {
+          waterRisk = calculateWaterStressRisk({
+            soilHumidity: soilHum,
+            forecastPrecip,
+            recentPrecip: manualPrecip[parcelle.id],
+            cultureName: parcelle.culture
+          });
+        }
+        
+        const plantInfo = parcelle.culture ? PLANTS_DATA[parcelle.culture] : null;
+
         return (
           <View key={parcelle.id} style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>{parcelle.name}</Text>
               <CultureBadge culture={parcelle.culture} />
             </View>
-            <View style={styles.cardRow}><Text style={styles.cardLabel}>Surface</Text><Text style={styles.cardValue}>{parcelle.surface_ha || '-'} ha</Text></View>
-            {Number.isFinite(lat) && Number.isFinite(lng) && (
-              <View style={styles.cardRow}><Text style={styles.cardLabel}>Centre</Text><Text style={styles.cardValue}>{lat.toFixed(4)}, {lng.toFixed(4)}</Text></View>
-            )}
 
-            {capteurs.length > 0 && (
-              <View style={styles.capteursSection}>
-                <Text style={styles.capteursSectionTitle}>Capteurs ({capteurs.length})</Text>
-                {capteurs.map((c) => (
-                  <View key={c.id} style={styles.capteurCard}>
-                    <Text style={styles.capteurCardName}>{c.name}</Text>
-                    {c.latest ? (
-                      <View style={styles.capteurVals}>
-                        <View style={styles.capteurVal}><Text style={styles.capteurValLabel}>Temp.</Text><Text style={styles.capteurValValue}>{Number(c.latest.temperature).toFixed(1)}°C</Text></View>
-                        <View style={styles.capteurVal}><Text style={styles.capteurValLabel}>Humid.</Text><Text style={styles.capteurValValue}>{Number(c.latest.humidite).toFixed(1)}%</Text></View>
-                        <View style={styles.capteurVal}><Text style={styles.capteurValLabel}>Pluie</Text><Text style={styles.capteurValValue}>{Number(c.latest.pluviometrie).toFixed(1)} mm</Text></View>
+            <View style={styles.tabHeader}>
+              <Pressable style={[styles.tabButton, activeTab === 'general' && styles.tabButtonActive]} onPress={() => handleTabChange(parcelle, 'general')}>
+                <Text style={[styles.tabButtonText, activeTab === 'general' && styles.tabButtonTextActive]}>Infos</Text>
+              </Pressable>
+              <Pressable style={[styles.tabButton, activeTab === 'irrigation' && styles.tabButtonActive]} onPress={() => handleTabChange(parcelle, 'irrigation')}>
+                <Text style={[styles.tabButtonText, activeTab === 'irrigation' && styles.tabButtonTextActive]}>Irrigation</Text>
+              </Pressable>
+              <Pressable style={[styles.tabButton, activeTab === 'soil' && styles.tabButtonActive]} onPress={() => handleTabChange(parcelle, 'soil')}>
+                <Text style={[styles.tabButtonText, activeTab === 'soil' && styles.tabButtonTextActive]}>Sols</Text>
+              </Pressable>
+              <Pressable style={[styles.tabButton, activeTab === 'documents' && styles.tabButtonActive]} onPress={() => handleTabChange(parcelle, 'documents')}>
+                <Text style={[styles.tabButtonText, activeTab === 'documents' && styles.tabButtonTextActive]}>Documents</Text>
+              </Pressable>
+            </View>
+
+            {activeTab === 'general' && (
+              <View>
+                <View style={styles.cardRow}><Text style={styles.cardLabel}>Surface</Text><Text style={styles.cardValue}>{parcelle.surface_ha || '-'} ha</Text></View>
+                {Number.isFinite(lat) && Number.isFinite(lng) && (
+                  <View style={styles.cardRow}><Text style={styles.cardLabel}>Centre</Text><Text style={styles.cardValue}>{lat.toFixed(4)}, {lng.toFixed(4)}</Text></View>
+                )}
+
+                {capteurs.length > 0 && (
+                  <View style={styles.capteursSection}>
+                    <Text style={styles.capteursSectionTitle}>Capteurs ({capteurs.length})</Text>
+                    {capteurs.map((c) => (
+                      <View key={c.id} style={styles.capteurCard}>
+                        <Text style={styles.capteurCardName}>{c.name}</Text>
+                        {c.latest ? (
+                          <View style={styles.capteurVals}>
+                            <View style={styles.capteurVal}><Text style={styles.capteurValLabel}>Temp.</Text><Text style={styles.capteurValValue}>{Number(c.latest.temperature).toFixed(1)}°C</Text></View>
+                            <View style={styles.capteurVal}><Text style={styles.capteurValLabel}>Humid.</Text><Text style={styles.capteurValValue}>{Number(c.latest.humidite).toFixed(1)}%</Text></View>
+                            <View style={styles.capteurVal}><Text style={styles.capteurValLabel}>Pluie</Text><Text style={styles.capteurValValue}>{Number(c.latest.pluviometrie).toFixed(1)} mm</Text></View>
+                          </View>
+                        ) : (
+                          <Text style={styles.capteurNoData}>Aucun relevé disponible</Text>
+                        )}
                       </View>
-                    ) : (
-                      <Text style={styles.capteurNoData}>Aucun relevé disponible</Text>
-                    )}
+                    ))}
                   </View>
-                ))}
+                )}
+                
+                <View style={styles.cardActions}>
+                  <Pressable style={styles.cardActionEdit} onPress={() => openEdit(parcelle)}><Text style={styles.cardActionEditText}>Modifier</Text></Pressable>
+                  <Pressable style={styles.cardActionDelete} onPress={() => handleDelete(parcelle)}><Text style={styles.cardActionDeleteText}>Supprimer</Text></Pressable>
+                </View>
               </View>
             )}
 
-            <View style={styles.cardActions}>
-              <Pressable style={styles.cardActionEdit} onPress={() => openEdit(parcelle)}><Text style={styles.cardActionEditText}>Modifier</Text></Pressable>
-              <Pressable style={styles.cardActionDelete} onPress={() => handleDelete(parcelle)}><Text style={styles.cardActionDeleteText}>Supprimer</Text></Pressable>
-            </View>
+            {activeTab === 'documents' && (
+              <View style={{ paddingTop: 10 }}>
+                <Text style={styles.capteursSectionTitle}>Coffre-fort documentaire</Text>
+                <View style={{ gap: 10, marginTop: 10 }}>
+                  <View style={styles.capteurCard}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={styles.capteurCardName}>Facture_semences.pdf</Text>
+                      <Ionicons name="trash-outline" size={18} color="#9f2f1f" />
+                    </View>
+                  </View>
+                  <View style={styles.capteurCard}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={styles.capteurCardName}>Analyse_sol_2023.pdf</Text>
+                      <Ionicons name="trash-outline" size={18} color="#9f2f1f" />
+                    </View>
+                  </View>
+                </View>
+                
+                <Pressable style={[styles.cardActionEdit, { marginTop: 15 }]}>
+                  <Text style={styles.cardActionEditText}>+ Ajouter un document</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {activeTab === 'soil' && (
+              <View style={styles.irrigationContainer}>
+                {soilHealthByParcelle[parcelle.id] ? (
+                  <>
+                    <View style={styles.irrigationRow}>
+                      <Text style={styles.irrigationLabel}>Santé Globale (IA)</Text>
+                      <RiskBadge value={soilHealthByParcelle[parcelle.id].globalScore > 75 ? 'Faible' : (soilHealthByParcelle[parcelle.id].globalScore > 50 ? 'Modéré' : 'Élevé')} />
+                    </View>
+
+                    <View style={styles.irrigationBlock}>
+                      <Text style={styles.irrigationBlockTitle}>Hydratation ({soilHealthByParcelle[parcelle.id].metrics.hydration}%)</Text>
+                      <View style={styles.progressBarBg}>
+                        <View style={[styles.progressBarFill, { width: `${soilHealthByParcelle[parcelle.id].metrics.hydration}%`, backgroundColor: '#1d6fe5' }]} />
+                      </View>
+                    </View>
+
+                    <View style={styles.irrigationBlock}>
+                      <Text style={styles.irrigationBlockTitle}>Nutriments Azote/Phosphore ({soilHealthByParcelle[parcelle.id].metrics.nutrition}%)</Text>
+                      <View style={styles.progressBarBg}>
+                        <View style={[styles.progressBarFill, { width: `${soilHealthByParcelle[parcelle.id].metrics.nutrition}%`, backgroundColor: soilHealthByParcelle[parcelle.id].metrics.nutrition < 50 ? '#c96c2d' : '#53815a' }]} />
+                      </View>
+                    </View>
+
+                    <View style={styles.irrigationBlock}>
+                      <Text style={styles.irrigationBlockTitle}>Risque Pathogène ({soilHealthByParcelle[parcelle.id].metrics.pathogenRisk}%)</Text>
+                      <View style={styles.progressBarBg}>
+                        <View style={[styles.progressBarFill, { width: `${soilHealthByParcelle[parcelle.id].metrics.pathogenRisk}%`, backgroundColor: soilHealthByParcelle[parcelle.id].metrics.pathogenRisk > 50 ? '#9f2f1f' : '#53815a' }]} />
+                      </View>
+                    </View>
+
+                    {soilHealthByParcelle[parcelle.id].globalScore < 60 && (
+                      <View style={[styles.irrigationBlock, { backgroundColor: '#fffaf5', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#eee7d8' }]}>
+                        <Text style={[styles.irrigationBlockTitle, { color: '#c96c2d' }]}>💡 Conseil de l'IA</Text>
+                        <Text style={styles.irrigationText}>{soilHealthByParcelle[parcelle.id].advice}</Text>
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <Text style={styles.empty}>Analyse IA de la santé du sol en cours...</Text>
+                )}
+              </View>
+            )}
+
+            {activeTab === 'irrigation' && (
+              <View style={styles.irrigationContainer}>
+                {!weather ? (
+                  <Text style={styles.empty}>Chargement des données météo...</Text>
+                ) : (
+                  <>
+                    <View style={styles.irrigationRow}>
+                      <Text style={styles.irrigationLabel}>Risque de stress hydrique</Text>
+                      <RiskBadge value={waterRisk} />
+                    </View>
+
+                    <View style={styles.irrigationBlock}>
+                      <Text style={styles.irrigationBlockTitle}>Prévisions (7 jours)</Text>
+                      <Text style={styles.irrigationText}>Pluie cumulée : {forecastPrecip.toFixed(1)} mm</Text>
+                    </View>
+
+                    <View style={styles.irrigationBlock}>
+                      <Text style={styles.irrigationBlockTitle}>Données capteurs</Text>
+                      {soilHum !== null && soilHum !== undefined ? (
+                        <Text style={styles.irrigationText}>Humidité du sol : {Number(soilHum).toFixed(1)}%</Text>
+                      ) : (
+                        <Text style={styles.capteurNoData}>Aucun capteur d'humidité associé à cette parcelle.</Text>
+                      )}
+                    </View>
+
+                    {plantInfo && plantInfo.needs && plantInfo.needs.water && (
+                      <View style={styles.irrigationBlock}>
+                        <Text style={styles.irrigationBlockTitle}>Besoins en eau ({parcelle.culture})</Text>
+                        <Text style={styles.irrigationText}>{plantInfo.needs.water}</Text>
+                      </View>
+                    )}
+
+                    {(waterRisk === 'Inconnu' || soilHum === null) && (
+                      <Pressable style={styles.refineButton} onPress={() => setRefinementOpen(parcelle.id)}>
+                        <Text style={styles.refineButtonText}>Affiner les données manuellement</Text>
+                      </Pressable>
+                    )}
+                  </>
+                )}
+              </View>
+            )}
           </View>
         );
       })}
     </ScrollView>
+
+      <IrrigationRefinementModal 
+        visible={!!refinementOpen} 
+        onClose={() => setRefinementOpen(null)}
+        onSave={(data) => {
+          if (data.pluviometrie !== null) {
+            setManualPrecip(prev => ({ ...prev, [refinementOpen]: data.pluviometrie }));
+          }
+        }}
+      />
 
       {deleting && (
         <View style={styles.deletingOverlay}>
@@ -571,14 +944,20 @@ const styles = StyleSheet.create({
   capteurValLabel: { color: '#677267', fontSize: 11, fontWeight: '600' },
   capteurValValue: { color: '#1d2a1e', fontSize: 14, fontWeight: '800' },
   capteurNoData: { color: '#9aa49a', fontSize: 12, fontStyle: 'italic' },
+  layerPanel: { paddingBottom: 6 },
+  layerScroll: { gap: 10 },
+  layerButton: { backgroundColor: '#fffdf8', borderWidth: 1, borderColor: '#d9cdb7', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center' },
+  layerButtonActive: { backgroundColor: '#1d2a1e', borderColor: '#1d2a1e' },
+  layerButtonText: { color: '#4d5a4d', fontWeight: '700', fontSize: 13 },
+  layerButtonTextActive: { color: '#fffdf8' },
   drawPanel: { gap: 10 },
-  drawButton: { borderWidth: 1, borderColor: '#d9cdb7', backgroundColor: '#fffdf8', borderRadius: 16, paddingVertical: 12, alignItems: 'center' },
+  drawControls: { gap: 10, marginTop: 4 },
+  drawButton: { backgroundColor: '#e8e1d3', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   drawButtonActive: { backgroundColor: '#21543d', borderColor: '#21543d' },
   drawButtonText: { color: '#4d5a4d', fontWeight: '700' },
   drawButtonTextActive: { color: '#fffdf8' },
   drawActionsRow: { flexDirection: 'row', gap: 10 },
   drawAction: { flex: 1, borderRadius: 14, paddingVertical: 10, alignItems: 'center', backgroundColor: '#e8e1d3' },
-  drawActionText: { color: '#4d5a4d', fontWeight: '700' },
   saveButton: { backgroundColor: '#c96c2d', borderRadius: 16, paddingVertical: 14, alignItems: 'center' },
   saveButtonDisabled: { backgroundColor: '#d8c4b3' },
   saveButtonText: { color: '#fffaf5', fontWeight: '800' },
@@ -613,4 +992,19 @@ const styles = StyleSheet.create({
   cardActionDeleteText: { color: '#9f2f1f', fontWeight: '700', fontSize: 14 },
   deletingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(243, 240, 232, 0.85)', alignItems: 'center', justifyContent: 'center', gap: 14 },
   deletingText: { color: '#1d2a1e', fontSize: 15, fontWeight: '700' },
+  tabHeader: { flexDirection: 'row', gap: 8, marginTop: 4, marginBottom: 8 },
+  tabButton: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center', backgroundColor: '#e8e1d3' },
+  tabButtonActive: { backgroundColor: '#21543d' },
+  tabButtonText: { color: '#4d5a4d', fontWeight: '700', fontSize: 13 },
+  tabButtonTextActive: { color: '#fffdf8' },
+  irrigationContainer: { gap: 12, paddingTop: 4 },
+  irrigationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  irrigationLabel: { color: '#1d2a1e', fontSize: 15, fontWeight: '700' },
+  irrigationBlock: { backgroundColor: '#f9f6f0', padding: 12, borderRadius: 12 },
+  irrigationBlockTitle: { color: '#677267', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginBottom: 4 },
+  irrigationText: { color: '#1d2a1e', fontSize: 14 },
+  progressBarBg: { height: 10, backgroundColor: '#e0d8c7', borderRadius: 5, overflow: 'hidden', marginTop: 4 },
+  progressBarFill: { height: '100%', borderRadius: 5 },
+  refineButton: { backgroundColor: '#c96c2d', borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
+  refineButtonText: { color: '#fffaf5', fontWeight: '700', fontSize: 14 },
 });

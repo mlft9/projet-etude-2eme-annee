@@ -22,6 +22,7 @@ async function start() {
   console.log('Connexion DB établie');
 
   await sequelize.query(`ALTER TABLE diagnostics ADD COLUMN IF NOT EXISTS score_confiance INTEGER`);
+  await sequelize.query(`ALTER TABLE diagnostics ADD COLUMN IF NOT EXISTS type_analyse VARCHAR(50) DEFAULT 'plante'`);
   await sequelize.query(`ALTER TABLE diagnostics DROP CONSTRAINT IF EXISTS diagnostics_parcelle_id_fkey`);
   await sequelize.query(`ALTER TABLE diagnostics ADD CONSTRAINT diagnostics_parcelle_id_fkey FOREIGN KEY (parcelle_id) REFERENCES parcelles(id) ON DELETE SET NULL`);
   await sequelize.query(`

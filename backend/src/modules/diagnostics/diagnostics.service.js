@@ -21,9 +21,9 @@ class DiagnosticsService {
     return this.diagnosticsRepository.findAllByUser(userId);
   }
 
-  async create(userId, { parcelle_id, image_base64 }) {
-    let result = await this.aiProvider.analyzeImage(image_base64);
-    const confidence = normalizeConfidence(result.indice_confiance_pct);
+  async create(userId, { parcelle_id, image_base64, type_analyse }) {
+    let result = await this.aiProvider.analyzeImage(image_base64, type_analyse);
+    const confidence = normalizeConfidence(result.indice_confiance_pct || result.score_confiance);
 
     if (confidence !== null && confidence < 70 && parcelle_id) {
       const latestSensor = await CapteurReleve.findOne({
@@ -51,6 +51,7 @@ class DiagnosticsService {
       conseil: result.conseil,
       ia_raw_response: result.raw,
       score_confiance: result.score_confiance ?? null,
+      type_analyse: type_analyse || 'plante', // save type_analyse for the refinement phase
     });
   }
 
@@ -58,7 +59,7 @@ class DiagnosticsService {
     const diagnostic = await this.diagnosticsRepository.findByIdAndUser(diagnosticId, userId);
     if (!diagnostic) throw Object.assign(new Error('Diagnostic introuvable'), { status: 404 });
 
-    const result = await this.aiProvider.analyzeWithSensors(diagnostic.image_base64, capteurData);
+    const result = await this.aiProvider.analyzeWithSensors(diagnostic.image_base64, capteurData, diagnostic.type_analyse);
 
     return this.diagnosticsRepository.update(diagnosticId, {
       maladie_detectee: result.maladie,

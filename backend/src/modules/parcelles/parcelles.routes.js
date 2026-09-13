@@ -8,5 +8,6 @@ module.exports = (parcellesController, authMiddleware) => {
   router.delete('/:id', authMiddleware, (req, res) => parcellesController.delete(req, res));
   router.get('/:id/capteurs/latest', authMiddleware, (req, res) => parcellesController.getLatestCapteurs(req, res));
   router.get('/:id/capteurs', authMiddleware, (req, res) => parcellesController.getCapteurs(req, res));
+  router.get('/:id/soil-health', authMiddleware, (req, res) => parcellesController.getSoilHealth(req, res));
   return router;
 };

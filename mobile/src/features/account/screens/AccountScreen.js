@@ -4,7 +4,7 @@ import { API_BASE_URL } from '../../../config';
 import { fetchCapteurs, createCapteur, deleteCapteur } from '../../../shared/services/api';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function AccountScreen({ user, token, parcelles = [], betail = [], onLogout, onOpenGestion, onOpenPacGenerator, onOpenIAChat }) {
+export default function AccountScreen({ user, token, parcelles = [], betail = [], documents = [], setDocuments, onLogout, onOpenGestion, onOpenPacGenerator, onOpenIAChat }) {
   const [capteurs, setCapteurs] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [formName, setFormName] = useState('');
